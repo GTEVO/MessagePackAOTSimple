@@ -9,8 +9,8 @@ namespace Client
         {
             StaticCompositeResolver.Instance.Register(new IFormatterResolver[]
             {
-                StandardResolver.Instance,
                 MsgDefine.Resolvers.GeneratedResolver.Instance,
+                StandardResolver.Instance,
             });
             // Store it for reuse.
             var options = MessagePackSerializerOptions.Standard
