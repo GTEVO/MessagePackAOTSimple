@@ -1,0 +1,13 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <ProduceOnlyReferenceAssembly>true</ProduceOnlyReferenceAssembly>
+    <AssemblyName>MessagePack.Annotations</AssemblyName>
+    <RootNamespace>MessagePack</RootNamespace>
+  </PropertyGroup>
+
+</Project>

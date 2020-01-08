@@ -1,0 +1,14 @@
+{
+    "name": "MessagePack",
+    "references": [
+        "MessagePack.Annotations"
+    ],
+    "optionalUnityReferences": [],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": true,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": []
+}

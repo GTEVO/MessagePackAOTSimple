@@ -1,0 +1,47 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+    <GenerateSerializationAssemblies>Off</GenerateSerializationAssemblies>
+  </PropertyGroup>
+  
+  <ItemGroup>
+    <Folder Include="AOT\" />
+  </ItemGroup>
+  
+  <ItemGroup>
+    <ProjectReference Include="..\Common\CommonLib.csproj">
+      <Private>true</Private>
+      <CopyLocalSatelliteAssemblies>false</CopyLocalSatelliteAssemblies>
+    </ProjectReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="MessagePack">
+      <HintPath>..\..\MessagePackAOT\Library\ScriptAssemblies\MessagePack.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="System.Memory">
+      <HintPath>..\..\MessagePackAOT\Assets\Plugins\System.Memory.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+
+
+  
+  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
+    <Exec Command="copy &quot;$(TargetDir)*.dll&quot; &quot;$(SolutionDir)..\MessagePackAOT\Assets\Plugins\&quot;&#xD;&#xA;copy &quot;$(TargetDir)*.pdb&quot; &quot;$(SolutionDir)..\MessagePackAOT\Assets\Plugins\&quot;" />
+  </Target>
+
+
+
+  
+  <Target Name="PreBuild" BeforeTargets="PreBuildEvent">
+    <Exec Command="dotnet-mpc -n MsgDefine -i $(SolutionDir)MsgDefine\MsgDefine.csproj,$(SolutionDir)Common\CommonLib.csproj -o $(ProjectDir)AOT\MsgDefine.cs" />
+  </Target>
+
+</Project>
