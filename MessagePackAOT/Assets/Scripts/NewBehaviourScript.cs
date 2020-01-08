@@ -11,7 +11,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System;
 using UnityEngine.Jobs;
-
+using System.IO;
 
 public class NewBehaviourScript : MonoBehaviour
 {
@@ -47,7 +47,13 @@ public class NewBehaviourScript : MonoBehaviour
             Authcode = "验证码",
         };
 
+        var fs = new FileStream(Path.Combine(Application.dataPath, "Resources", "Test2.bytes"), FileMode.Open);
+        var _as = new byte[fs.Length];
+        fs.Read(_as, 0, _as.Length);
+        fs.Close();
+        fs.Dispose();
 
+        var a = new CancellationTokenSource();
         Task.Factory.StartNew(() => {
             try {
                 var registerMsgBytes = MessagePackSerializer.Serialize(registerMsg);
