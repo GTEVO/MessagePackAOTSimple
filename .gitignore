@@ -1,3 +1,10 @@
 # Object file
-*.obj
-*.o
+obj
+bin
+Library
+.vs
+/MessagePackAOT/Win32
+/MessagePackAOT/Assembly-CSharp.csproj
+/MessagePackAOT/MessagePack.Annotations.csproj
+/MessagePackAOT/MessagePack.csproj
+/MessagePackAOT/MessagePackAOT.sln
