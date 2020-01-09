@@ -25,9 +25,6 @@ public class Test : MonoBehaviour
            GeneratedResolver.Instance,
            StandardResolver.Instance,
         });
-        MessageProcessor.RegisterHandler<TestMsg1>(HandleMsg1);
-        MessageProcessor.RegisterHandler<TestMsg2>(HandleMsg2);
-        MessageProcessor.RegisterHandler<TestMsg2>(HandleMsg2);
     }
 
     private void HandleMsg1(TestMsg1 msg)
@@ -86,18 +83,19 @@ public class Test : MonoBehaviour
 
     public void OnClickOnMsg()
     {
+        //
+        MessageProcessor.RegisterHandler<TestMsg1>(HandleMsg1);
         var msg = MessageProcessor.PackageMessage(new TestMsg1 {
             Name = "GT"
         });
         MessageProcessor.ProcessMsgPack(msg);
-
+        MessageProcessor.UnRegisterHandler<TestMsg1>(HandleMsg1);
+        //
         msg = MessageProcessor.PackageMessage(new TestMsg2 {
             Age = 26
         });
-
+        MessageProcessor.RegisterHandler<TestMsg2>(HandleMsg2);
         MessageProcessor.ProcessMsgPack(msg);
-
-        //  MessageProcessor.UnRegisterHandler<M1>(HandleMsg1);
         MessageProcessor.UnRegisterHandler<TestMsg2>(HandleMsg2);
     }
 }

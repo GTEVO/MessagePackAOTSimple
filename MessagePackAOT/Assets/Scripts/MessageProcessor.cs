@@ -38,13 +38,11 @@ public sealed class MessageProcessor
 
         static HandlerCache()
         {
-            if (_handler != null)
-                return;
             var type = typeof(T);
             if (type.GetCustomAttribute(typeof(MessageIdAttribute), false) is MessageIdAttribute msgId) {
                 _id = msgId.Id;
                 _handler = new Handler();
-                Debug.LogFormat("HandlerCache: Add New Handler {0}, MsgId={1}", type.FullName, _id);
+                Debug.LogFormat("HandlerCache: Cache New Handler:{0}, Id={1}", type.FullName, _id);
                 _handlers.Add(_id, _handler);
             }
             else {
