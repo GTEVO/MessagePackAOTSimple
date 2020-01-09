@@ -11,25 +11,36 @@ public sealed class MessageProcessor
 {
     private interface IHandler
     {
-        void DoHandle(byte[] data);
+        void Unpack(byte[] data);
+        MessagePackage Package<T>(T data);
     }
 
-    private static class HandlerCache<T>
+    private static class HandlerCache<MsgType>
     {
         private class Handler : IHandler
         {
-            public event Action<T> DataHandler;
+            public event Action<MsgType> DataHandler;
 
             public Handler()
             {
-                var type = typeof(T);
+                var type = typeof(MsgType);
                 Debug.LogFormat("Handler: {0} Be Created", type.FullName);
             }
 
-            void IHandler.DoHandle(byte[] data)
+            public void Unpack(byte[] data)
             {
-                var msg = MessagePackSerializer.Deserialize<T>(data);
-                DataHandler?.Invoke(msg);
+                if (DataHandler != null) {
+                    var msg = MessagePackSerializer.Deserialize<MsgType>(data);
+                    DataHandler(msg);
+                }
+            }
+
+            public MessagePackage Package<T>(T data)
+            {
+                return new MessagePackage {
+                    Id = _id,
+                    Data = MessagePackSerializer.Serialize(data)
+                };
             }
         }
 
@@ -38,7 +49,7 @@ public sealed class MessageProcessor
 
         static HandlerCache()
         {
-            var type = typeof(T);
+            var type = typeof(MsgType);
             if (type.GetCustomAttribute(typeof(MessageIdAttribute), false) is MessageIdAttribute msgId) {
                 _id = msgId.Id;
                 _handler = new Handler();
@@ -50,35 +61,32 @@ public sealed class MessageProcessor
             }
         }
 
-        public static void RegisterHandler(Action<T> action)
+        public static void RegisterHandler(Action<MsgType> action)
         {
             if (_handler != null) {
                 _handler.DataHandler += action;
             }
             else {
-                Debug.LogWarningFormat("Can Not Register {0}", typeof(T).FullName);
+                Debug.LogWarningFormat("Can Not Register {0}", typeof(MsgType).FullName);
             }
         }
 
-        public static void UnRegisterHandler(Action<T> action)
+        public static void UnRegisterHandler(Action<MsgType> action)
         {
             if (_handler != null) {
                 _handler.DataHandler -= action;
             }
             else {
-                Debug.LogWarningFormat("Can Not UnRegister {0}", typeof(T).FullName);
+                Debug.LogWarningFormat("Can Not UnRegister {0}", typeof(MsgType).FullName);
             }
         }
 
-        public static MessagePackage PackageMessage(T message)
+        public static MessagePackage PackageMessage(MsgType message)
         {
             if (_handler == null)
-                return null;
+                return default;
             else
-                return new MessagePackage {
-                    Id = _id,
-                    Data = MessagePackSerializer.Serialize(message)
-                };
+                return _handler.Package<MsgType>(message);
         }
     }
 
@@ -97,7 +105,7 @@ public sealed class MessageProcessor
     public static void ProcessMsgPack(MessagePackage msg)
     {
         if (_handlers.TryGetValue(msg.Id, out var handler)) {
-            handler.DoHandle(msg.Data);
+            handler.Unpack(msg.Data);
         }
         else {
             Debug.LogWarningFormat("HandlerManager: MsgId {0} No Handler To Process", msg.Id);
