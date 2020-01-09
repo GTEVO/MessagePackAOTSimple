@@ -12,6 +12,8 @@ using System.Threading.Tasks;
 using System;
 using UnityEngine.Jobs;
 using System.IO;
+using MessageDefine;
+using Msgs;
 
 public class NewBehaviourScript : MonoBehaviour
 {
@@ -22,6 +24,27 @@ public class NewBehaviourScript : MonoBehaviour
     private void Awake()
     {
         Program.InitMessagePack();
+        StaticCompositeResolver.Instance.Register(new IFormatterResolver[] {
+           MsgDefine.Resolvers.GeneratedResolver.Instance,
+           GeneratedResolver.Instance,
+           StandardResolver.Instance,
+        });
+        MessageHandlerManager.RegisterHandler<M1>(HandleMsg1);
+        MessageHandlerManager.RegisterHandler<M2>(HandleMsg2);
+        MessageHandlerManager.RegisterHandler<M3>(HandleMsg3);
+    }
+
+    private void HandleMsg1(M1 msg)
+    {
+        Debug.LogFormat("M1 - {0}", msg.Name);
+    }
+    private void HandleMsg2(M2 msg)
+    {
+        Debug.LogFormat("M2 - {0}", msg.Age);
+    }
+    private void HandleMsg3(M3 msg)
+    {
+        Debug.LogFormat("M3 - {0}", msg.Sex ? "Man" : "Woman");
     }
 
     public void OnClick()
@@ -63,8 +86,37 @@ public class NewBehaviourScript : MonoBehaviour
 
                 text2.text = string.Format("{0}:{1}-{2}", deserializeMsg.Id, deserializeMsg.Phone, deserializeMsg.Authcode);
             }
-            catch (Exception e) {
+            catch {
             }
         }, CancellationToken.None, TaskCreationOptions.None, TaskScheduler.FromCurrentSynchronizationContext()).Wait();
+    }
+
+    public void OnClickOnMsg()
+    {
+        MessageHandlerManager.DoHandleMsg(new MessagePackage {
+            Id = 1,
+            Data = MessagePackSerializer.Serialize(
+                new M1 {
+                    Name = "GT"
+                }),
+        });
+        MessageHandlerManager.DoHandleMsg(new MessagePackage {
+            Id = 2,
+            Data = MessagePackSerializer.Serialize(
+                new M2 {
+                    Age = 26
+                }),
+        });
+        MessageHandlerManager.DoHandleMsg(new MessagePackage {
+            Id = 3,
+            Data = MessagePackSerializer.Serialize(
+             new M3 {
+                 Sex = true
+             }),
+        });
+
+        MessageHandlerManager.UnRegisterHandler<M1>(HandleMsg1);
+        // MessageHandlerManager.UnRegisterHandler<M2>(HandleMsg2);
+        MessageHandlerManager.UnRegisterHandler<M3>(HandleMsg3);
     }
 }
