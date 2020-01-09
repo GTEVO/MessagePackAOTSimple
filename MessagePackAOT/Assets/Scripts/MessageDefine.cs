@@ -3,11 +3,11 @@
 namespace MessageDefine
 {
     [AttributeUsage(AttributeTargets.Class, Inherited = false)]
-    public class MsgIdAttribute : Attribute
+    public class MessageIdAttribute : Attribute
     {
         public int Id { get; private set; }
 
-        public MsgIdAttribute(int id)
+        public MessageIdAttribute(int id)
         {
             Id = id;
         }

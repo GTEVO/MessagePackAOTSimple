@@ -1,7 +1,6 @@
 ﻿using MessagePack;
 using MessagePack.Resolvers;
 using MsgDefine;
-using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
@@ -9,13 +8,10 @@ using Client;
 using Common;
 using System.Threading;
 using System.Threading.Tasks;
-using System;
-using UnityEngine.Jobs;
 using System.IO;
-using MessageDefine;
 using Msgs;
 
-public class NewBehaviourScript : MonoBehaviour
+public class Test : MonoBehaviour
 {
 
     [SerializeField] Text text;
@@ -29,22 +25,19 @@ public class NewBehaviourScript : MonoBehaviour
            GeneratedResolver.Instance,
            StandardResolver.Instance,
         });
-        MessageHandlerManager.RegisterHandler<M1>(HandleMsg1);
-        MessageHandlerManager.RegisterHandler<M2>(HandleMsg2);
-        MessageHandlerManager.RegisterHandler<M3>(HandleMsg3);
+        MessageProcessor.RegisterHandler<TestMsg1>(HandleMsg1);
+        MessageProcessor.RegisterHandler<TestMsg2>(HandleMsg2);
+        MessageProcessor.RegisterHandler<TestMsg2>(HandleMsg2);
     }
 
-    private void HandleMsg1(M1 msg)
+    private void HandleMsg1(TestMsg1 msg)
     {
         Debug.LogFormat("M1 - {0}", msg.Name);
     }
-    private void HandleMsg2(M2 msg)
+
+    private void HandleMsg2(TestMsg2 msg)
     {
         Debug.LogFormat("M2 - {0}", msg.Age);
-    }
-    private void HandleMsg3(M3 msg)
-    {
-        Debug.LogFormat("M3 - {0}", msg.Sex ? "Man" : "Woman");
     }
 
     public void OnClick()
@@ -93,30 +86,18 @@ public class NewBehaviourScript : MonoBehaviour
 
     public void OnClickOnMsg()
     {
-        MessageHandlerManager.DoHandleMsg(new MessagePackage {
-            Id = 1,
-            Data = MessagePackSerializer.Serialize(
-                new M1 {
-                    Name = "GT"
-                }),
+        var msg = MessageProcessor.PackageMessage(new TestMsg1 {
+            Name = "GT"
         });
-        MessageHandlerManager.DoHandleMsg(new MessagePackage {
-            Id = 2,
-            Data = MessagePackSerializer.Serialize(
-                new M2 {
-                    Age = 26
-                }),
-        });
-        MessageHandlerManager.DoHandleMsg(new MessagePackage {
-            Id = 3,
-            Data = MessagePackSerializer.Serialize(
-             new M3 {
-                 Sex = true
-             }),
+        MessageProcessor.ProcessMsgPack(msg);
+
+        msg = MessageProcessor.PackageMessage(new TestMsg2 {
+            Age = 26
         });
 
-        MessageHandlerManager.UnRegisterHandler<M1>(HandleMsg1);
-        // MessageHandlerManager.UnRegisterHandler<M2>(HandleMsg2);
-        MessageHandlerManager.UnRegisterHandler<M3>(HandleMsg3);
+        MessageProcessor.ProcessMsgPack(msg);
+
+        //  MessageProcessor.UnRegisterHandler<M1>(HandleMsg1);
+        MessageProcessor.UnRegisterHandler<TestMsg2>(HandleMsg2);
     }
 }

@@ -6,25 +6,18 @@ namespace Msgs
 {
 
     [MessagePackObject]
-    [MsgId(1)]
-    public class M1
+    [MessageId(1)]
+    public class TestMsg1
     {
         [Key(0)]
         public string Name { get; set; }
     }
 
     [MessagePackObject]
-    [MsgId(2)]
-    public class M2
+    [MessageId(2)]
+    public class TestMsg2
     {
         [Key(0)]
         public int Age { get; set; }
-    }
-
-    [MessagePackObject]
-    public class M3
-    {
-        [Key(0)]
-        public bool Sex { get; set; }
     }
 }

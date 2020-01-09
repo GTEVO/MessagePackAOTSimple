@@ -51,11 +51,10 @@ namespace MessagePack.Resolvers
 
         static GeneratedResolverGetFormatterHelper()
         {
-            lookup = new global::System.Collections.Generic.Dictionary<Type, int>(3)
+            lookup = new global::System.Collections.Generic.Dictionary<Type, int>(2)
             {
-                { typeof(global::Msgs.M1), 0 },
-                { typeof(global::Msgs.M2), 1 },
-                { typeof(global::Msgs.M3), 2 },
+                { typeof(global::Msgs.TestMsg1), 0 },
+                { typeof(global::Msgs.TestMsg2), 1 },
             };
         }
 
@@ -71,7 +70,6 @@ namespace MessagePack.Resolvers
             {
                 case 0: return new MessagePack.Formatters.Msgs.M1Formatter();
                 case 1: return new MessagePack.Formatters.Msgs.M2Formatter();
-                case 2: return new MessagePack.Formatters.Msgs.M3Formatter();
                 default: return null;
             }
         }
@@ -112,11 +110,11 @@ namespace MessagePack.Formatters.Msgs
     using System.Buffers;
     using MessagePack;
 
-    public sealed class M1Formatter : global::MessagePack.Formatters.IMessagePackFormatter<global::Msgs.M1>
+    public sealed class M1Formatter : global::MessagePack.Formatters.IMessagePackFormatter<global::Msgs.TestMsg1>
     {
 
 
-        public void Serialize(ref MessagePackWriter writer, global::Msgs.M1 value, global::MessagePack.MessagePackSerializerOptions options)
+        public void Serialize(ref MessagePackWriter writer, global::Msgs.TestMsg1 value, global::MessagePack.MessagePackSerializerOptions options)
         {
             if (value == null)
             {
@@ -129,7 +127,7 @@ namespace MessagePack.Formatters.Msgs
             formatterResolver.GetFormatterWithVerify<string>().Serialize(ref writer, value.Name, options);
         }
 
-        public global::Msgs.M1 Deserialize(ref MessagePackReader reader, global::MessagePack.MessagePackSerializerOptions options)
+        public global::Msgs.TestMsg1 Deserialize(ref MessagePackReader reader, global::MessagePack.MessagePackSerializerOptions options)
         {
             if (reader.TryReadNil())
             {
@@ -155,17 +153,17 @@ namespace MessagePack.Formatters.Msgs
                 }
             }
 
-            var ____result = new global::Msgs.M1();
+            var ____result = new global::Msgs.TestMsg1();
             ____result.Name = __Name__;
             return ____result;
         }
     }
 
-    public sealed class M2Formatter : global::MessagePack.Formatters.IMessagePackFormatter<global::Msgs.M2>
+    public sealed class M2Formatter : global::MessagePack.Formatters.IMessagePackFormatter<global::Msgs.TestMsg2>
     {
 
 
-        public void Serialize(ref MessagePackWriter writer, global::Msgs.M2 value, global::MessagePack.MessagePackSerializerOptions options)
+        public void Serialize(ref MessagePackWriter writer, global::Msgs.TestMsg2 value, global::MessagePack.MessagePackSerializerOptions options)
         {
             if (value == null)
             {
@@ -178,7 +176,7 @@ namespace MessagePack.Formatters.Msgs
             writer.Write(value.Age);
         }
 
-        public global::Msgs.M2 Deserialize(ref MessagePackReader reader, global::MessagePack.MessagePackSerializerOptions options)
+        public global::Msgs.TestMsg2 Deserialize(ref MessagePackReader reader, global::MessagePack.MessagePackSerializerOptions options)
         {
             if (reader.TryReadNil())
             {
@@ -204,57 +202,8 @@ namespace MessagePack.Formatters.Msgs
                 }
             }
 
-            var ____result = new global::Msgs.M2();
+            var ____result = new global::Msgs.TestMsg2();
             ____result.Age = __Age__;
-            return ____result;
-        }
-    }
-
-    public sealed class M3Formatter : global::MessagePack.Formatters.IMessagePackFormatter<global::Msgs.M3>
-    {
-
-
-        public void Serialize(ref MessagePackWriter writer, global::Msgs.M3 value, global::MessagePack.MessagePackSerializerOptions options)
-        {
-            if (value == null)
-            {
-                writer.WriteNil();
-                return;
-            }
-
-            IFormatterResolver formatterResolver = options.Resolver;
-            writer.WriteArrayHeader(1);
-            writer.Write(value.Sex);
-        }
-
-        public global::Msgs.M3 Deserialize(ref MessagePackReader reader, global::MessagePack.MessagePackSerializerOptions options)
-        {
-            if (reader.TryReadNil())
-            {
-                return null;
-            }
-
-            IFormatterResolver formatterResolver = options.Resolver;
-            var length = reader.ReadArrayHeader();
-            var __Sex__ = default(bool);
-
-            for (int i = 0; i < length; i++)
-            {
-                var key = i;
-
-                switch (key)
-                {
-                    case 0:
-                        __Sex__ = reader.ReadBoolean();
-                        break;
-                    default:
-                        reader.Skip();
-                        break;
-                }
-            }
-
-            var ____result = new global::Msgs.M3();
-            ____result.Sex = __Sex__;
             return ____result;
         }
     }

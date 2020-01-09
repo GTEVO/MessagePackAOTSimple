@@ -7,7 +7,7 @@ using UnityEngine;
 using MessagePack;
 
 
-public sealed class MessageHandlerManager
+public sealed class MessageProcessor
 {
     private interface IHandler
     {
@@ -29,21 +29,23 @@ public sealed class MessageHandlerManager
             void IHandler.DoHandle(byte[] data)
             {
                 var msg = MessagePackSerializer.Deserialize<T>(data);
-                DataHandler?.Invoke((T)msg);
+                DataHandler?.Invoke(msg);
             }
         }
 
         private static readonly Handler _handler;
+        private static readonly int _id;
 
         static HandlerCache()
         {
             if (_handler != null)
                 return;
             var type = typeof(T);
-            if (type.GetCustomAttribute(typeof(MsgIdAttribute), false) is MsgIdAttribute msgId) {
+            if (type.GetCustomAttribute(typeof(MessageIdAttribute), false) is MessageIdAttribute msgId) {
+                _id = msgId.Id;
                 _handler = new Handler();
-                Debug.LogFormat("HandlerCache: Add New Handler {0}, MsgId={1}", type.FullName, msgId.Id);
-                _handlers.Add(msgId.Id, _handler);
+                Debug.LogFormat("HandlerCache: Add New Handler {0}, MsgId={1}", type.FullName, _id);
+                _handlers.Add(_id, _handler);
             }
             else {
                 Debug.LogWarningFormat("HandlerCache: {0} Is Not Msg !", type.FullName);
@@ -69,6 +71,17 @@ public sealed class MessageHandlerManager
                 Debug.LogWarningFormat("Can Not UnRegister {0}", typeof(T).FullName);
             }
         }
+
+        public static MessagePackage PackageMessage(T message)
+        {
+            if (_handler == null)
+                return null;
+            else
+                return new MessagePackage {
+                    Id = _id,
+                    Data = MessagePackSerializer.Serialize(message)
+                };
+        }
     }
 
     private static readonly Dictionary<int, IHandler> _handlers = new Dictionary<int, IHandler>();
@@ -83,7 +96,7 @@ public sealed class MessageHandlerManager
         HandlerCache<T>.UnRegisterHandler(action);
     }
 
-    public static void DoHandleMsg(MessagePackage msg)
+    public static void ProcessMsgPack(MessagePackage msg)
     {
         if (_handlers.TryGetValue(msg.Id, out var handler)) {
             handler.DoHandle(msg.Data);
@@ -91,5 +104,10 @@ public sealed class MessageHandlerManager
         else {
             Debug.LogWarningFormat("HandlerManager: MsgId {0} No Handler To Process", msg.Id);
         }
+    }
+
+    public static MessagePackage PackageMessage<T>(T message)
+    {
+        return HandlerCache<T>.PackageMessage(message);
     }
 }
