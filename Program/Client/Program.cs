@@ -7,16 +7,7 @@ namespace Client
     {
         public static void InitMessagePack()
         {
-            StaticCompositeResolver.Instance.Register(new IFormatterResolver[]
-            {
-                MsgDefine.Resolvers.GeneratedResolver.Instance,
-                StandardResolver.Instance,
-            });
-            // Store it for reuse.
-            var options = MessagePackSerializerOptions.Standard
-                            .WithResolver(StaticCompositeResolver.Instance)
-                            .WithCompression(MessagePackCompression.Lz4BlockArray);
-            MessagePackSerializer.DefaultOptions = options;
+          
         }
 
         /*

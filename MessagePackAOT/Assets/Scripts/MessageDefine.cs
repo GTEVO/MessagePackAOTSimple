@@ -1,4 +1,5 @@
-﻿using System;
+﻿using MessagePack;
+using System;
 
 namespace MessageDefine
 {
@@ -18,10 +19,13 @@ namespace MessageDefine
         int Id { get; set; }
     }
 
+    [MessagePackObject]
     public class MessagePackage
     {
+        [Key(0)]
         public int Id { get; set; }
 
+        [Key(1)]
         public byte[] Data { get; set; }
     }
 

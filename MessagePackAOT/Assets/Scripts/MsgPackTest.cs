@@ -8,6 +8,8 @@ using Client;
 using Common;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Net;
+using System.Net.Sockets;
 using System.IO;
 using Msgs;
 
@@ -19,12 +21,18 @@ public class MsgPackTest : MonoBehaviour
 
     private void Awake()
     {
-        Program.InitMessagePack();
-        StaticCompositeResolver.Instance.Register(new IFormatterResolver[] {
-           MsgDefine.Resolvers.GeneratedResolver.Instance,
-           GeneratedResolver.Instance,
-           StandardResolver.Instance,
+        StaticCompositeResolver.Instance.Register(new IFormatterResolver[]
+        {
+            MsgDefine.Resolvers.GeneratedResolver.Instance,
+            GeneratedResolver.Instance,
+            MessagePack.Unity.UnityResolver.Instance,
+            StandardResolver.Instance,
         });
+        // Store it for reuse.
+        var options = MessagePackSerializerOptions.Standard
+                        .WithResolver(StaticCompositeResolver.Instance)
+                        .WithCompression(MessagePackCompression.Lz4Block);
+        MessagePackSerializer.DefaultOptions = options;
     }
 
     private void HandleMsg1(TestMsg1 msg)
@@ -97,5 +105,17 @@ public class MsgPackTest : MonoBehaviour
         MessageProcessor.RegisterHandler<TestMsg2>(HandleMsg2);
         MessageProcessor.ProcessMsgPack(msg);
         MessageProcessor.UnRegisterHandler<TestMsg2>(HandleMsg2);
+
+        msg = MessageProcessor.PackageMessage(new Position {
+            Last = new Vector3(1, 1, 1),
+            Current = new Vector3(6, 6, 6),
+        });
+        var bytes = MessagePackSerializer.Serialize(msg);
+        var ip = new IPEndPoint(IPAddress.Loopback, 8000);
+        var socket = new Socket(ip.AddressFamily, SocketType.Dgram, ProtocolType.Udp);
+        socket.Connect(ip);
+        socket.SendTo(bytes, ip);
+        socket.Close();
+        socket.Dispose();
     }
 }

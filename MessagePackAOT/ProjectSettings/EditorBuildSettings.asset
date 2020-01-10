@@ -6,6 +6,6 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
-    path: Assets/Scenes/SampleScene.unity
-    guid: d2c12bd465b1a804087606f698c340b8
+    path: Assets/Scenes/JsonDotNet.unity
+    guid: 8e4742761a67a8e48a83dcc46e1dbd38
   m_configObjects: {}

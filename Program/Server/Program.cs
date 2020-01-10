@@ -2,6 +2,8 @@
 using MsgDefine;
 using MessagePack;
 using System.Linq;
+using Server;
+using System.Threading.Tasks;
 
 namespace Console1
 {
@@ -24,6 +26,9 @@ namespace Console1
 
             Console.WriteLine(MessagePackSerializer.ConvertToJson(bytes));
 
+            new UdpServer().Start();
+
+            Console.ReadLine();
         }
 
 

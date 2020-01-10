@@ -1,6 +1,6 @@
 ﻿using MessageDefine;
 using MessagePack;
-
+using UnityEngine;
 
 namespace Msgs
 {
@@ -19,5 +19,16 @@ namespace Msgs
     {
         [Key(0)]
         public int Age { get; set; }
+    }
+
+    [MessagePackObject]
+    [MessageId(3)]
+    public class Position
+    {
+        [Key(0)]
+        public Vector3 Last { get; set; }
+
+        [Key(1)]
+        public Vector3 Current { get; set; }
     }
 }
