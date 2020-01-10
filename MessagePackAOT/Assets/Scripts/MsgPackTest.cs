@@ -11,7 +11,7 @@ using System.Threading.Tasks;
 using System.IO;
 using Msgs;
 
-public class Test : MonoBehaviour
+public class MsgPackTest : MonoBehaviour
 {
 
     [SerializeField] Text text;
