@@ -10,4 +10,11 @@
     <RootNamespace>MessagePack</RootNamespace>
   </PropertyGroup>
 
+  <PropertyGroup>
+    <OutDir>$(SolutionDir)\ReferenceAssembly\</OutDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.Memory" Version="4.5.3" />
+  </ItemGroup>
 </Project>

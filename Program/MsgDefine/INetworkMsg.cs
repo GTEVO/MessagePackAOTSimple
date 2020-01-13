@@ -5,14 +5,29 @@ using System.Text;
 
 namespace MsgDefine
 {
-    public interface INetworkMsg
+    [AttributeUsage(AttributeTargets.Class, Inherited = false)]
+    public class MessageIdAttribute : Attribute
+    {
+        public int Id { get; private set; }
+
+        public MessageIdAttribute(int id)
+        {
+            Id = id;
+        }
+    }
+
+    public interface IDataPackage
     {
         int Id { get; set; }
     }
 
-    public abstract class BaseNetworkMsg : INetworkMsg
+    [MessagePackObject]
+    public class MessagePackage
     {
         [Key(0)]
         public int Id { get; set; }
+
+        [Key(1)]
+        public byte[] Data { get; set; }
     }
 }

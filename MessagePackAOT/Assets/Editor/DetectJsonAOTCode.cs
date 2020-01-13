@@ -33,6 +33,8 @@ public class DetectJsonAOTCode
     [InitializeOnLoadMethod]
     public static void TestInjectMothod()
     {
+        //  注：编辑器下注入后，可能会无法调试
+        return;
         var path = Path.Combine(Application.dataPath, @"..\Library\ScriptAssemblies\Assembly-CSharp.dll");
         var assembly = AssemblyDefinition.ReadAssembly(path);
         var types = assembly.MainModule.GetTypes();

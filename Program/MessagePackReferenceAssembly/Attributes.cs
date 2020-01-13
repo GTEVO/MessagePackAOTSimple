@@ -2,13 +2,11 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
 using System;
-using System.Runtime.CompilerServices;
 
 #pragma warning disable SA1649 // File name should match first type name
 
 namespace MessagePack
 {
-
     [AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct, AllowMultiple = false, Inherited = true)]
     public class MessagePackObjectAttribute : Attribute
     {
@@ -16,7 +14,7 @@ namespace MessagePack
 
         public MessagePackObjectAttribute(bool keyAsPropertyName = false)
         {
-
+            this.KeyAsPropertyName = keyAsPropertyName;
         }
     }
 
@@ -29,12 +27,12 @@ namespace MessagePack
 
         public KeyAttribute(int x)
         {
-
+            this.IntKey = x;
         }
 
         public KeyAttribute(string x)
         {
-
+            this.StringKey = x;
         }
     }
 
@@ -52,7 +50,8 @@ namespace MessagePack
 
         public UnionAttribute(int key, Type subType)
         {
-
+            this.Key = key;
+            this.SubType = subType;
         }
     }
 
@@ -70,12 +69,13 @@ namespace MessagePack
 
         public MessagePackFormatterAttribute(Type formatterType)
         {
-
+            this.FormatterType = formatterType;
         }
 
         public MessagePackFormatterAttribute(Type formatterType, params object[] arguments)
         {
-
+            this.FormatterType = formatterType;
+            this.Arguments = arguments;
         }
     }
 }
