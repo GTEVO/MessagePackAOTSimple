@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Reflection;
 using MsgDefine;
 using CommonLib.Serializer;
+using System.Net;
 
 namespace CommonLib
 {
@@ -12,7 +13,7 @@ namespace CommonLib
 
         private interface IHandler
         {
-            void Unpack(byte[] data);
+            void Unpack(byte[] data, EndPoint remote);
             MessagePackage Package<T>(T data);
         }
 
@@ -20,7 +21,7 @@ namespace CommonLib
         {
             private class DefaultHandler : IHandler
             {
-                public event Action<MsgType> DataHandler;
+                public event Action<MsgType, EndPoint> DataHandler;
                 private readonly ISerializer _serializer;
 
                 public DefaultHandler(ISerializer serializer)
@@ -30,11 +31,11 @@ namespace CommonLib
                     Debug.LogFormat("Handler: {0} Be Created", type.FullName);
                 }
 
-                public void Unpack(byte[] data)
+                public void Unpack(byte[] data, EndPoint remote)
                 {
                     if (DataHandler != null) {
                         var msg = _serializer.Deserialize<MsgType>(data);
-                        DataHandler(msg);
+                        DataHandler(msg, remote);
                     }
                 }
 
@@ -64,7 +65,7 @@ namespace CommonLib
                 }
             }
 
-            public static void RegisterHandler(Action<MsgType> action)
+            public static void RegisterHandler(Action<MsgType, EndPoint> action)
             {
                 if (_handler != null) {
                     _handler.DataHandler += action;
@@ -74,7 +75,7 @@ namespace CommonLib
                 }
             }
 
-            public static void UnRegisterHandler(Action<MsgType> action)
+            public static void UnRegisterHandler(Action<MsgType, EndPoint> action)
             {
                 if (_handler != null) {
                     _handler.DataHandler -= action;
@@ -95,21 +96,21 @@ namespace CommonLib
 
         private static readonly Dictionary<int, IHandler> _handlers = new Dictionary<int, IHandler>();
 
-        public static void RegisterHandler<T>(Action<T> action)
+        public static void RegisterHandler<T>(Action<T, EndPoint> action)
         {
             HandlerCache<T>.RegisterHandler(action);
         }
 
-        public static void UnRegisterHandler<T>(Action<T> action)
+        public static void UnRegisterHandler<T>(Action<T, EndPoint> action)
         {
             HandlerCache<T>.UnRegisterHandler(action);
         }
 
         /*******************************************************/
-        public static void ProcessMsgPack(MessagePackage msg)
+        public static void ProcessMsgPack(MessagePackage msg, EndPoint remote)
         {
             if (_handlers.TryGetValue(msg.Id, out var handler)) {
-                handler.Unpack(msg.Data);
+                handler.Unpack(msg.Data, remote);
             }
             else {
                 Debug.LogWarningFormat("HandlerManager: MsgId {0} No Handler To Process", msg.Id);

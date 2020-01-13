@@ -1,11 +1,22 @@
 ﻿using CommonLib.Serializer;
 using MessagePack;
+using MessagePack.Resolvers;
 using System;
 
-namespace ClientLib.Serializer
+namespace Server.Serializer
 {
     public class MsgPackBitSerializer : ISerializer
     {
+
+        public MsgPackBitSerializer()
+        {
+            /*
+            var options = MessagePackSerializerOptions.Standard
+                            .WithResolver(StaticCompositeResolver.Instance)
+                            .WithCompression(MessagePackCompression.Lz4Block);
+            MessagePackSerializer.DefaultOptions = options;
+            */
+        }
         byte[] ISerializer.Serialize<MsgType>(MsgType obj)
         {
             var bytes = MessagePackSerializer.Serialize<MsgType>(obj);

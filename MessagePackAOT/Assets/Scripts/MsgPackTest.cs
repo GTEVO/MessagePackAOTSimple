@@ -13,7 +13,6 @@ using CommonLib;
 using Debug = CommonLib.Debug;
 using MsgDefine.TestMsg;
 using MsgDefine.Resolvers;
-using Models;
 using ClientLib;
 
 public class MsgPackTest : MonoBehaviour
@@ -30,6 +29,7 @@ public class MsgPackTest : MonoBehaviour
     private void Awake()
     {
         App.Instacne.Init();
+        App.Instacne.TestHandler += HandleMsg3;
         _cancellationTokenSource = new CancellationTokenSource();
         StaticCompositeResolver.Instance.Register(new IFormatterResolver[]
         {
@@ -42,6 +42,11 @@ public class MsgPackTest : MonoBehaviour
                         .WithResolver(StaticCompositeResolver.Instance)
                         .WithCompression(MessagePackCompression.Lz4Block);
         MessagePackSerializer.DefaultOptions = options;
+    }
+
+    private void OnDestroy()
+    {
+        App.Instacne.UnInit();
     }
 
     private void ShowAsText(string txt)
@@ -57,16 +62,25 @@ public class MsgPackTest : MonoBehaviour
         text.transform.localScale = Vector3.one;
     }
 
-    private void HandleMsg1(TestMsg1 msg)
+    private void HandleMsg1(TestMsg1 msg, EndPoint remote)
     {
+        var type = msg.GetType();
         Debug.LogFormat("M1 - {0}", msg.Name);
-        ShowAsText(string.Format("handle msg => {0} - {1}", typeof(TestMsg1).FullName, msg.Name));
+        ShowAsText(string.Format("handle msg => {0} - {1}", type.FullName, msg.Name));
     }
 
-    private void HandleMsg2(TestMsg2 msg)
+    private void HandleMsg2(TestMsg2 msg, EndPoint remote)
     {
+        var type = msg.GetType();
         Debug.LogFormat("M2 - {0}", msg.Age);
-        ShowAsText(string.Format("handle msg => {0} - {1}", typeof(TestMsg2).FullName, msg.Age));
+        ShowAsText(string.Format("handle msg => {0} - {1}", type.FullName, msg.Age));
+    }
+
+    private void HandleMsg3(LoginRspMsg msg)
+    {
+        var type = msg.GetType();
+        Debug.LogFormat("M3 - {0}", msg.Player);
+        ShowAsText(string.Format("handle msg => {0} - {1}|{2}", type.FullName, msg.Player.Name, msg.Player.Status));
     }
 
     public void OnClickCancel()
@@ -80,11 +94,6 @@ public class MsgPackTest : MonoBehaviour
             Account = "account",
             Password = "pwd",
             Extra = "哈哈哈",
-            Player = new Player {
-                Name = "二逼青年",
-                Mails = new Dictionary<int, Mail> { { 1, new Mail { Id = 2, Title = "abc" } } },
-                Status = Status.Logining,
-            },
         };
         var reqMsgBytes = MessagePackSerializer.Serialize(loginMsg);
         var reqMsgreqMsgObj = MessagePackSerializer.Deserialize<LoginReqMsg>(reqMsgBytes);
@@ -122,7 +131,7 @@ public class MsgPackTest : MonoBehaviour
         var msg = MessageProcessor.PackageMessage(new TestMsg1 {
             Name = "GT"
         });
-        MessageProcessor.ProcessMsgPack(msg);
+        MessageProcessor.ProcessMsgPack(msg, null);
         MessageProcessor.UnRegisterHandler<TestMsg1>(HandleMsg1);
 
         // msg2 先打包
@@ -130,16 +139,18 @@ public class MsgPackTest : MonoBehaviour
             Age = 26
         });
         MessageProcessor.RegisterHandler<TestMsg2>(HandleMsg2);
-        MessageProcessor.ProcessMsgPack(msg);
+        MessageProcessor.ProcessMsgPack(msg, null);
         MessageProcessor.UnRegisterHandler<TestMsg2>(HandleMsg2);
 
+        //
+        var loginReq = new LoginReqMsg {
+            Account = "A",
+            Password = "PWD",
+            Extra = "额外"
+        };
+        var loginReqBytes = MessagePackSerializer.Serialize(
+             MessageProcessor.PackageMessage(loginReq));
+        App.Instacne.UDPClient.Send(loginReqBytes); ;
 
-        var bytes = MessagePackSerializer.Serialize(msg);
-        var ip = new IPEndPoint(IPAddress.Loopback, 8000);
-        var socket = new Socket(ip.AddressFamily, SocketType.Dgram, ProtocolType.Udp);
-        socket.Connect(ip);
-        socket.SendTo(bytes, ip);
-        socket.Close();
-        socket.Dispose();
     }
 }

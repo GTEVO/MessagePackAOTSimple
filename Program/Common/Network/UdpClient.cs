@@ -1,74 +1,56 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using MessagePack;
-using UnityEngine;
 using System.Threading.Tasks.Dataflow;
+using System.Buffers;
 
 
-namespace Server
+namespace CommonLib.Network
 {
-    [MessagePackObject]
-    public class MessagePackage
+    public class UdpClient
     {
-        [Key(0)]
-        public int Id { get; set; }
-
-        [Key(1)]
-        public byte[] Data { get; set; }
-    }
-
-    [MessagePackObject]
-    public class Position
-    {
-        [Key(0)]
-        public Vector3 Last { get; set; }
-
-        [Key(1)]
-        public Vector3 Current { get; set; }
-    }
-
-
-    public class UdpServer
-    {
-
-        public struct RecvResult
-        {
-            public int len;
-            public EndPoint remote;
-        }
-
         byte[] _buffer;
         EndPoint _remoteEP;
         CancellationTokenSource _cancellationTokenSource;
 
         Socket _socket;
 
-        //  BufferBlock<>
+        BufferBlock<NetworkPack> _recvQueue = new BufferBlock<NetworkPack>();
 
         public void Start()
         {
             _buffer = new byte[ushort.MaxValue];
-            _remoteEP = new IPEndPoint(IPAddress.Any, IPEndPoint.MinPort);
+
             _cancellationTokenSource = new CancellationTokenSource();
 
-            var ip = new IPEndPoint(IPAddress.Any, 8000);
-            _socket = new Socket(ip.AddressFamily, SocketType.Dgram, ProtocolType.Udp);
-            _socket.Bind(ip);
+            _remoteEP = new IPEndPoint(IPAddress.Parse("192.168.0.116"), 8000);
+            _socket = new Socket(_remoteEP.AddressFamily, SocketType.Dgram, ProtocolType.Udp);
+            _socket.Connect(_remoteEP);
             var recvTask = new Task(async () => {
                 while (!_cancellationTokenSource.IsCancellationRequested) {
                     var result = await Task.Factory.FromAsync(BeginRecvFrom, EndRecvFrom, _socket, TaskCreationOptions.AttachedToParent);
-                    var m = new ReadOnlyMemory<byte>(_buffer, 0, result.len);
-                    var pos = MessagePackSerializer.Deserialize<MessagePackage>(m);
-                    var p = MessagePackSerializer.Deserialize<Position>(pos.Data);
-                    Console.WriteLine(result);
+                    var msgpack = NetworkPack.NetworkPackPool.Get();
+                    msgpack.remote = result.remote;
+                    msgpack.size = result.len;
+                    msgpack.bytes = MemoryPool<byte>.Shared.Rent(result.len);
+                    ((Span<byte>)_buffer).Slice(0, result.len).CopyTo(msgpack.bytes.Memory.Span);
+                    await _recvQueue.SendAsync(msgpack);
                 }
             }, _cancellationTokenSource.Token, TaskCreationOptions.LongRunning);
             recvTask.Start();
+        }
+
+        public Task<NetworkPack> RecvAsync()
+        {
+            return _recvQueue.ReceiveAsync();
+        }
+
+
+        public void Send(byte[] data)
+        {
+            _socket.SendTo(data, _remoteEP);
         }
 
         private IAsyncResult BeginRecvFrom(AsyncCallback callback, object state)
@@ -76,7 +58,6 @@ namespace Server
             var result = _socket.BeginReceiveFrom(_buffer, 0, ushort.MaxValue, SocketFlags.None, ref _remoteEP, callback, state);
             return result;
         }
-
         private RecvResult EndRecvFrom(IAsyncResult result)
         {
             var recvBytes = _socket.EndReceiveFrom(result, ref _remoteEP);
@@ -86,6 +67,5 @@ namespace Server
             };
             return rr;
         }
-
     }
 }

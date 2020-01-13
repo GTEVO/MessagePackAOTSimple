@@ -1,43 +1,6 @@
 ﻿using MessagePack;
-using Models;
-using System.Collections.Generic;
+using Model;
 
-public enum Status
-{
-    Offline,
-    Logining,
-    Logouting,
-    Outline,
-}
-
-namespace Models
-{
-    [MessagePackObject]
-    public class Mail
-    {
-        [Key(0)]
-        public int Id { get; set; }
-
-        [Key(1)]
-        public string Title { get; set; }
-
-        [Key(2)]
-        public string Content { get; set; }
-    }
-
-    [MessagePackObject]
-    public class Player
-    {
-        [Key(0)]
-        public string Name { get; set; }
-
-        [Key(1)]
-        public Dictionary<int, Mail> Mails { get; set; }
-
-        [Key(2)]
-        public Status Status { get; set; }
-    }
-}
 
 namespace MsgDefine.TestMsg
 {
@@ -59,6 +22,14 @@ namespace MsgDefine.TestMsg
 
     [MessagePackObject]
     [MessageId(3)]
+    public class TestMsg3
+    {
+        [Key(0)]
+        public string Address { get; set; }
+    }
+
+    [MessagePackObject]
+    [MessageId(4)]
     public class LoginReqMsg
     {
         [Key(0)]
@@ -70,13 +41,19 @@ namespace MsgDefine.TestMsg
         [Key(2)]
         public string Extra { get; set; }
 
-        [Key(3)]
+    }
+
+    [MessagePackObject]
+    [MessageId(5)]
+    public class LoginRspMsg
+    {
+        [Key(0)]
         public Player Player { get; set; }
 
     }
 
     [MessagePackObject]
-    [MessageId(4)]
+    [MessageId(6)]
     public class RegisterReqMsg
     {
         [Key(0)]

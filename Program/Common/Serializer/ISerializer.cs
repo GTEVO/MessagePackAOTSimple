@@ -1,8 +1,10 @@
-﻿namespace CommonLib.Serializer
+﻿using System;
+
+namespace CommonLib.Serializer
 {
     public interface ISerializer
     {
         byte[] Serialize<MsgType>(MsgType obj);
-        MsgType Deserialize<MsgType>(byte[] bytes);
+        MsgType Deserialize<MsgType>(ReadOnlyMemory<byte> bytes);
     }
 }

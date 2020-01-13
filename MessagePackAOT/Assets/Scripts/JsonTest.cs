@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using Newtonsoft.Json;
+using Model.JsonItem;
+
 
 namespace JsonItem2
 {
@@ -29,32 +31,41 @@ public class JsonTest : MonoBehaviour
     }
 
 
-    public void Test()
+    public void ClickStruct()
     {
         var json = string.Format("{{\"Level\":{0},\"Exp\":12,\"DeltaExp\":2}}", (int)(Time.time * 1000));
-        var obj2 = JsonConvert.DeserializeObject<JsonItem.StructItem>(json);
-        _text.text = obj2.Level.ToString();
+        var @struct = JsonConvert.DeserializeObject<StructItem>(json);
+        _text.text = @struct.Level.ToString();
     }
 
-    public void Test2()
+    public void ClickClass()
     {
-        var json = string.Format("{{\"Items\":[{{\"Level\":{0},\"Exp\":12,\"DeltaExp\":2}}]}}", (int)(Time.time * 1000));
-        var obj2 = JsonConvert.DeserializeObject<JsonItem.ItemsArray>(json);
-        _text.text = obj2.Items[0].Level.ToString();
+        var json = string.Format("{{\"Level\":{0},\"Exp\":12,\"DeltaExp\":2}}", (int)(Time.time * 1000));
+        var @class = JsonConvert.DeserializeObject<ClassItem>(json);
+        _text.text = @class.Level.ToString();
     }
 
-    public void Test3()
+    public void ClickArray()
     {
         var json = string.Format("{{\"Items\":[{{\"Level\":{0},\"Exp\":12,\"DeltaExp\":2}}]}}", (int)(Time.time * 1000));
-        var obj2 = JsonConvert.DeserializeObject<JsonItem2.ItemsArray>(json);
-        _text.text = obj2.Items[0].Level.ToString();
+        var array = JsonConvert.DeserializeObject<ClassItemsArray>(json);
+        _text.text = array.Items[0].Level.ToString();
+    }
+
+    public void ClickList()
+    {
+        var json = string.Format("{{\"Items\":[{{\"Level\":{0},\"Exp\":12,\"DeltaExp\":2}}]}}", (int)(Time.time * 1000));
+        var list = JsonConvert.DeserializeObject<ClassItemList>(json);
+        _text.text = list.Items[0].Level.ToString();
     }
 
     private void InjectMod()
     {
+        /*
         var json = string.Format("{{\"Items\":[{{\"Level\":{0},\"Exp\":12,\"DeltaExp\":2}}]}}", (int)(Time.time * 1000));
         var obj2 = JsonConvert.DeserializeObject<JsonItem2.ItemsArray>(json);
         _text.text = obj2.Items[0].Level.ToString();
+        */
     }
 
     /*

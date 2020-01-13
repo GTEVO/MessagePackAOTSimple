@@ -51,17 +51,19 @@ namespace MsgDefine.Resolvers
 
         static GeneratedResolverGetFormatterHelper()
         {
-            lookup = new global::System.Collections.Generic.Dictionary<Type, int>(9)
+            lookup = new global::System.Collections.Generic.Dictionary<Type, int>(11)
             {
-                { typeof(global::System.Collections.Generic.Dictionary<int, global::Models.Mail>), 0 },
-                { typeof(global::Status), 1 },
+                { typeof(global::System.Collections.Generic.Dictionary<int, global::Model.Mail>), 0 },
+                { typeof(global::Model.Status), 1 },
                 { typeof(global::MsgDefine.MessagePackage), 2 },
-                { typeof(global::Models.Mail), 3 },
-                { typeof(global::Models.Player), 4 },
-                { typeof(global::MsgDefine.TestMsg.TestMsg1), 5 },
-                { typeof(global::MsgDefine.TestMsg.TestMsg2), 6 },
-                { typeof(global::MsgDefine.TestMsg.LoginReqMsg), 7 },
-                { typeof(global::MsgDefine.TestMsg.RegisterReqMsg), 8 },
+                { typeof(global::MsgDefine.TestMsg.TestMsg1), 3 },
+                { typeof(global::MsgDefine.TestMsg.TestMsg2), 4 },
+                { typeof(global::MsgDefine.TestMsg.TestMsg3), 5 },
+                { typeof(global::MsgDefine.TestMsg.LoginReqMsg), 6 },
+                { typeof(global::Model.Mail), 7 },
+                { typeof(global::Model.Player), 8 },
+                { typeof(global::MsgDefine.TestMsg.LoginRspMsg), 9 },
+                { typeof(global::MsgDefine.TestMsg.RegisterReqMsg), 10 },
             };
         }
 
@@ -75,15 +77,17 @@ namespace MsgDefine.Resolvers
 
             switch (key)
             {
-                case 0: return new global::MessagePack.Formatters.DictionaryFormatter<int, global::Models.Mail>();
-                case 1: return new MsgDefine.Formatters.StatusFormatter();
+                case 0: return new global::MessagePack.Formatters.DictionaryFormatter<int, global::Model.Mail>();
+                case 1: return new MsgDefine.Formatters.Model.StatusFormatter();
                 case 2: return new MsgDefine.Formatters.MsgDefine.MessagePackageFormatter();
-                case 3: return new MsgDefine.Formatters.Models.MailFormatter();
-                case 4: return new MsgDefine.Formatters.Models.PlayerFormatter();
-                case 5: return new MsgDefine.Formatters.MsgDefine.TestMsg.TestMsg1Formatter();
-                case 6: return new MsgDefine.Formatters.MsgDefine.TestMsg.TestMsg2Formatter();
-                case 7: return new MsgDefine.Formatters.MsgDefine.TestMsg.LoginReqMsgFormatter();
-                case 8: return new MsgDefine.Formatters.MsgDefine.TestMsg.RegisterReqMsgFormatter();
+                case 3: return new MsgDefine.Formatters.MsgDefine.TestMsg.TestMsg1Formatter();
+                case 4: return new MsgDefine.Formatters.MsgDefine.TestMsg.TestMsg2Formatter();
+                case 5: return new MsgDefine.Formatters.MsgDefine.TestMsg.TestMsg3Formatter();
+                case 6: return new MsgDefine.Formatters.MsgDefine.TestMsg.LoginReqMsgFormatter();
+                case 7: return new MsgDefine.Formatters.Model.MailFormatter();
+                case 8: return new MsgDefine.Formatters.Model.PlayerFormatter();
+                case 9: return new MsgDefine.Formatters.MsgDefine.TestMsg.LoginRspMsgFormatter();
+                case 10: return new MsgDefine.Formatters.MsgDefine.TestMsg.RegisterReqMsgFormatter();
                 default: return null;
             }
         }
@@ -113,22 +117,22 @@ namespace MsgDefine.Resolvers
 #pragma warning disable SA1403 // File may only contain a single namespace
 #pragma warning disable SA1649 // File name should match first type name
 
-namespace MsgDefine.Formatters
+namespace MsgDefine.Formatters.Model
 {
     using System;
     using System.Buffers;
     using MessagePack;
 
-    public sealed class StatusFormatter : global::MessagePack.Formatters.IMessagePackFormatter<global::Status>
+    public sealed class StatusFormatter : global::MessagePack.Formatters.IMessagePackFormatter<global::Model.Status>
     {
-        public void Serialize(ref MessagePackWriter writer, global::Status value, global::MessagePack.MessagePackSerializerOptions options)
+        public void Serialize(ref MessagePackWriter writer, global::Model.Status value, global::MessagePack.MessagePackSerializerOptions options)
         {
             writer.Write((Int32)value);
         }
 
-        public global::Status Deserialize(ref MessagePackReader reader, global::MessagePack.MessagePackSerializerOptions options)
+        public global::Model.Status Deserialize(ref MessagePackReader reader, global::MessagePack.MessagePackSerializerOptions options)
         {
-            return (global::Status)reader.ReadInt32();
+            return (global::Model.Status)reader.ReadInt32();
         }
     }
 }
@@ -217,163 +221,6 @@ namespace MsgDefine.Formatters.MsgDefine
             var ____result = new global::MsgDefine.MessagePackage();
             ____result.Id = __Id__;
             ____result.Data = __Data__;
-            return ____result;
-        }
-    }
-}
-
-#pragma warning restore 168
-#pragma warning restore 414
-#pragma warning restore 618
-#pragma warning restore 612
-
-#pragma warning restore SA1129 // Do not use default value type constructor
-#pragma warning restore SA1200 // Using directives should be placed correctly
-#pragma warning restore SA1309 // Field names should not begin with underscore
-#pragma warning restore SA1312 // Variable names should begin with lower-case letter
-#pragma warning restore SA1403 // File may only contain a single namespace
-#pragma warning restore SA1649 // File name should match first type name
-
-// <auto-generated>
-// THIS (.cs) FILE IS GENERATED BY MPC(MessagePack-CSharp). DO NOT CHANGE IT.
-// </auto-generated>
-
-#pragma warning disable 618
-#pragma warning disable 612
-#pragma warning disable 414
-#pragma warning disable 168
-
-#pragma warning disable SA1129 // Do not use default value type constructor
-#pragma warning disable SA1200 // Using directives should be placed correctly
-#pragma warning disable SA1309 // Field names should not begin with underscore
-#pragma warning disable SA1312 // Variable names should begin with lower-case letter
-#pragma warning disable SA1403 // File may only contain a single namespace
-#pragma warning disable SA1649 // File name should match first type name
-
-namespace MsgDefine.Formatters.Models
-{
-    using System;
-    using System.Buffers;
-    using MessagePack;
-
-    public sealed class MailFormatter : global::MessagePack.Formatters.IMessagePackFormatter<global::Models.Mail>
-    {
-
-
-        public void Serialize(ref MessagePackWriter writer, global::Models.Mail value, global::MessagePack.MessagePackSerializerOptions options)
-        {
-            if (value == null)
-            {
-                writer.WriteNil();
-                return;
-            }
-
-            IFormatterResolver formatterResolver = options.Resolver;
-            writer.WriteArrayHeader(3);
-            writer.Write(value.Id);
-            formatterResolver.GetFormatterWithVerify<string>().Serialize(ref writer, value.Title, options);
-            formatterResolver.GetFormatterWithVerify<string>().Serialize(ref writer, value.Content, options);
-        }
-
-        public global::Models.Mail Deserialize(ref MessagePackReader reader, global::MessagePack.MessagePackSerializerOptions options)
-        {
-            if (reader.TryReadNil())
-            {
-                return null;
-            }
-
-            IFormatterResolver formatterResolver = options.Resolver;
-            var length = reader.ReadArrayHeader();
-            var __Id__ = default(int);
-            var __Title__ = default(string);
-            var __Content__ = default(string);
-
-            for (int i = 0; i < length; i++)
-            {
-                var key = i;
-
-                switch (key)
-                {
-                    case 0:
-                        __Id__ = reader.ReadInt32();
-                        break;
-                    case 1:
-                        __Title__ = formatterResolver.GetFormatterWithVerify<string>().Deserialize(ref reader, options);
-                        break;
-                    case 2:
-                        __Content__ = formatterResolver.GetFormatterWithVerify<string>().Deserialize(ref reader, options);
-                        break;
-                    default:
-                        reader.Skip();
-                        break;
-                }
-            }
-
-            var ____result = new global::Models.Mail();
-            ____result.Id = __Id__;
-            ____result.Title = __Title__;
-            ____result.Content = __Content__;
-            return ____result;
-        }
-    }
-
-    public sealed class PlayerFormatter : global::MessagePack.Formatters.IMessagePackFormatter<global::Models.Player>
-    {
-
-
-        public void Serialize(ref MessagePackWriter writer, global::Models.Player value, global::MessagePack.MessagePackSerializerOptions options)
-        {
-            if (value == null)
-            {
-                writer.WriteNil();
-                return;
-            }
-
-            IFormatterResolver formatterResolver = options.Resolver;
-            writer.WriteArrayHeader(3);
-            formatterResolver.GetFormatterWithVerify<string>().Serialize(ref writer, value.Name, options);
-            formatterResolver.GetFormatterWithVerify<global::System.Collections.Generic.Dictionary<int, global::Models.Mail>>().Serialize(ref writer, value.Mails, options);
-            formatterResolver.GetFormatterWithVerify<global::Status>().Serialize(ref writer, value.Status, options);
-        }
-
-        public global::Models.Player Deserialize(ref MessagePackReader reader, global::MessagePack.MessagePackSerializerOptions options)
-        {
-            if (reader.TryReadNil())
-            {
-                return null;
-            }
-
-            IFormatterResolver formatterResolver = options.Resolver;
-            var length = reader.ReadArrayHeader();
-            var __Name__ = default(string);
-            var __Mails__ = default(global::System.Collections.Generic.Dictionary<int, global::Models.Mail>);
-            var __Status__ = default(global::Status);
-
-            for (int i = 0; i < length; i++)
-            {
-                var key = i;
-
-                switch (key)
-                {
-                    case 0:
-                        __Name__ = formatterResolver.GetFormatterWithVerify<string>().Deserialize(ref reader, options);
-                        break;
-                    case 1:
-                        __Mails__ = formatterResolver.GetFormatterWithVerify<global::System.Collections.Generic.Dictionary<int, global::Models.Mail>>().Deserialize(ref reader, options);
-                        break;
-                    case 2:
-                        __Status__ = formatterResolver.GetFormatterWithVerify<global::Status>().Deserialize(ref reader, options);
-                        break;
-                    default:
-                        reader.Skip();
-                        break;
-                }
-            }
-
-            var ____result = new global::Models.Player();
-            ____result.Name = __Name__;
-            ____result.Mails = __Mails__;
-            ____result.Status = __Status__;
             return ____result;
         }
     }
@@ -511,6 +358,55 @@ namespace MsgDefine.Formatters.MsgDefine.TestMsg
         }
     }
 
+    public sealed class TestMsg3Formatter : global::MessagePack.Formatters.IMessagePackFormatter<global::MsgDefine.TestMsg.TestMsg3>
+    {
+
+
+        public void Serialize(ref MessagePackWriter writer, global::MsgDefine.TestMsg.TestMsg3 value, global::MessagePack.MessagePackSerializerOptions options)
+        {
+            if (value == null)
+            {
+                writer.WriteNil();
+                return;
+            }
+
+            IFormatterResolver formatterResolver = options.Resolver;
+            writer.WriteArrayHeader(1);
+            formatterResolver.GetFormatterWithVerify<string>().Serialize(ref writer, value.Address, options);
+        }
+
+        public global::MsgDefine.TestMsg.TestMsg3 Deserialize(ref MessagePackReader reader, global::MessagePack.MessagePackSerializerOptions options)
+        {
+            if (reader.TryReadNil())
+            {
+                return null;
+            }
+
+            IFormatterResolver formatterResolver = options.Resolver;
+            var length = reader.ReadArrayHeader();
+            var __Address__ = default(string);
+
+            for (int i = 0; i < length; i++)
+            {
+                var key = i;
+
+                switch (key)
+                {
+                    case 0:
+                        __Address__ = formatterResolver.GetFormatterWithVerify<string>().Deserialize(ref reader, options);
+                        break;
+                    default:
+                        reader.Skip();
+                        break;
+                }
+            }
+
+            var ____result = new global::MsgDefine.TestMsg.TestMsg3();
+            ____result.Address = __Address__;
+            return ____result;
+        }
+    }
+
     public sealed class LoginReqMsgFormatter : global::MessagePack.Formatters.IMessagePackFormatter<global::MsgDefine.TestMsg.LoginReqMsg>
     {
 
@@ -524,11 +420,10 @@ namespace MsgDefine.Formatters.MsgDefine.TestMsg
             }
 
             IFormatterResolver formatterResolver = options.Resolver;
-            writer.WriteArrayHeader(4);
+            writer.WriteArrayHeader(3);
             formatterResolver.GetFormatterWithVerify<string>().Serialize(ref writer, value.Account, options);
             formatterResolver.GetFormatterWithVerify<string>().Serialize(ref writer, value.Password, options);
             formatterResolver.GetFormatterWithVerify<string>().Serialize(ref writer, value.Extra, options);
-            formatterResolver.GetFormatterWithVerify<global::Models.Player>().Serialize(ref writer, value.Player, options);
         }
 
         public global::MsgDefine.TestMsg.LoginReqMsg Deserialize(ref MessagePackReader reader, global::MessagePack.MessagePackSerializerOptions options)
@@ -543,7 +438,6 @@ namespace MsgDefine.Formatters.MsgDefine.TestMsg
             var __Account__ = default(string);
             var __Password__ = default(string);
             var __Extra__ = default(string);
-            var __Player__ = default(global::Models.Player);
 
             for (int i = 0; i < length; i++)
             {
@@ -560,9 +454,6 @@ namespace MsgDefine.Formatters.MsgDefine.TestMsg
                     case 2:
                         __Extra__ = formatterResolver.GetFormatterWithVerify<string>().Deserialize(ref reader, options);
                         break;
-                    case 3:
-                        __Player__ = formatterResolver.GetFormatterWithVerify<global::Models.Player>().Deserialize(ref reader, options);
-                        break;
                     default:
                         reader.Skip();
                         break;
@@ -573,6 +464,54 @@ namespace MsgDefine.Formatters.MsgDefine.TestMsg
             ____result.Account = __Account__;
             ____result.Password = __Password__;
             ____result.Extra = __Extra__;
+            return ____result;
+        }
+    }
+
+    public sealed class LoginRspMsgFormatter : global::MessagePack.Formatters.IMessagePackFormatter<global::MsgDefine.TestMsg.LoginRspMsg>
+    {
+
+
+        public void Serialize(ref MessagePackWriter writer, global::MsgDefine.TestMsg.LoginRspMsg value, global::MessagePack.MessagePackSerializerOptions options)
+        {
+            if (value == null)
+            {
+                writer.WriteNil();
+                return;
+            }
+
+            IFormatterResolver formatterResolver = options.Resolver;
+            writer.WriteArrayHeader(1);
+            formatterResolver.GetFormatterWithVerify<global::Model.Player>().Serialize(ref writer, value.Player, options);
+        }
+
+        public global::MsgDefine.TestMsg.LoginRspMsg Deserialize(ref MessagePackReader reader, global::MessagePack.MessagePackSerializerOptions options)
+        {
+            if (reader.TryReadNil())
+            {
+                return null;
+            }
+
+            IFormatterResolver formatterResolver = options.Resolver;
+            var length = reader.ReadArrayHeader();
+            var __Player__ = default(global::Model.Player);
+
+            for (int i = 0; i < length; i++)
+            {
+                var key = i;
+
+                switch (key)
+                {
+                    case 0:
+                        __Player__ = formatterResolver.GetFormatterWithVerify<global::Model.Player>().Deserialize(ref reader, options);
+                        break;
+                    default:
+                        reader.Skip();
+                        break;
+                }
+            }
+
+            var ____result = new global::MsgDefine.TestMsg.LoginRspMsg();
             ____result.Player = __Player__;
             return ____result;
         }
@@ -629,6 +568,163 @@ namespace MsgDefine.Formatters.MsgDefine.TestMsg
             var ____result = new global::MsgDefine.TestMsg.RegisterReqMsg();
             ____result.Phone = __Phone__;
             ____result.Authcode = __Authcode__;
+            return ____result;
+        }
+    }
+}
+
+#pragma warning restore 168
+#pragma warning restore 414
+#pragma warning restore 618
+#pragma warning restore 612
+
+#pragma warning restore SA1129 // Do not use default value type constructor
+#pragma warning restore SA1200 // Using directives should be placed correctly
+#pragma warning restore SA1309 // Field names should not begin with underscore
+#pragma warning restore SA1312 // Variable names should begin with lower-case letter
+#pragma warning restore SA1403 // File may only contain a single namespace
+#pragma warning restore SA1649 // File name should match first type name
+
+// <auto-generated>
+// THIS (.cs) FILE IS GENERATED BY MPC(MessagePack-CSharp). DO NOT CHANGE IT.
+// </auto-generated>
+
+#pragma warning disable 618
+#pragma warning disable 612
+#pragma warning disable 414
+#pragma warning disable 168
+
+#pragma warning disable SA1129 // Do not use default value type constructor
+#pragma warning disable SA1200 // Using directives should be placed correctly
+#pragma warning disable SA1309 // Field names should not begin with underscore
+#pragma warning disable SA1312 // Variable names should begin with lower-case letter
+#pragma warning disable SA1403 // File may only contain a single namespace
+#pragma warning disable SA1649 // File name should match first type name
+
+namespace MsgDefine.Formatters.Model
+{
+    using System;
+    using System.Buffers;
+    using MessagePack;
+
+    public sealed class MailFormatter : global::MessagePack.Formatters.IMessagePackFormatter<global::Model.Mail>
+    {
+
+
+        public void Serialize(ref MessagePackWriter writer, global::Model.Mail value, global::MessagePack.MessagePackSerializerOptions options)
+        {
+            if (value == null)
+            {
+                writer.WriteNil();
+                return;
+            }
+
+            IFormatterResolver formatterResolver = options.Resolver;
+            writer.WriteArrayHeader(3);
+            writer.Write(value.Id);
+            formatterResolver.GetFormatterWithVerify<string>().Serialize(ref writer, value.Title, options);
+            formatterResolver.GetFormatterWithVerify<string>().Serialize(ref writer, value.Content, options);
+        }
+
+        public global::Model.Mail Deserialize(ref MessagePackReader reader, global::MessagePack.MessagePackSerializerOptions options)
+        {
+            if (reader.TryReadNil())
+            {
+                return null;
+            }
+
+            IFormatterResolver formatterResolver = options.Resolver;
+            var length = reader.ReadArrayHeader();
+            var __Id__ = default(int);
+            var __Title__ = default(string);
+            var __Content__ = default(string);
+
+            for (int i = 0; i < length; i++)
+            {
+                var key = i;
+
+                switch (key)
+                {
+                    case 0:
+                        __Id__ = reader.ReadInt32();
+                        break;
+                    case 1:
+                        __Title__ = formatterResolver.GetFormatterWithVerify<string>().Deserialize(ref reader, options);
+                        break;
+                    case 2:
+                        __Content__ = formatterResolver.GetFormatterWithVerify<string>().Deserialize(ref reader, options);
+                        break;
+                    default:
+                        reader.Skip();
+                        break;
+                }
+            }
+
+            var ____result = new global::Model.Mail();
+            ____result.Id = __Id__;
+            ____result.Title = __Title__;
+            ____result.Content = __Content__;
+            return ____result;
+        }
+    }
+
+    public sealed class PlayerFormatter : global::MessagePack.Formatters.IMessagePackFormatter<global::Model.Player>
+    {
+
+
+        public void Serialize(ref MessagePackWriter writer, global::Model.Player value, global::MessagePack.MessagePackSerializerOptions options)
+        {
+            if (value == null)
+            {
+                writer.WriteNil();
+                return;
+            }
+
+            IFormatterResolver formatterResolver = options.Resolver;
+            writer.WriteArrayHeader(3);
+            formatterResolver.GetFormatterWithVerify<string>().Serialize(ref writer, value.Name, options);
+            formatterResolver.GetFormatterWithVerify<global::System.Collections.Generic.Dictionary<int, global::Model.Mail>>().Serialize(ref writer, value.Mails, options);
+            formatterResolver.GetFormatterWithVerify<global::Model.Status>().Serialize(ref writer, value.Status, options);
+        }
+
+        public global::Model.Player Deserialize(ref MessagePackReader reader, global::MessagePack.MessagePackSerializerOptions options)
+        {
+            if (reader.TryReadNil())
+            {
+                return null;
+            }
+
+            IFormatterResolver formatterResolver = options.Resolver;
+            var length = reader.ReadArrayHeader();
+            var __Name__ = default(string);
+            var __Mails__ = default(global::System.Collections.Generic.Dictionary<int, global::Model.Mail>);
+            var __Status__ = default(global::Model.Status);
+
+            for (int i = 0; i < length; i++)
+            {
+                var key = i;
+
+                switch (key)
+                {
+                    case 0:
+                        __Name__ = formatterResolver.GetFormatterWithVerify<string>().Deserialize(ref reader, options);
+                        break;
+                    case 1:
+                        __Mails__ = formatterResolver.GetFormatterWithVerify<global::System.Collections.Generic.Dictionary<int, global::Model.Mail>>().Deserialize(ref reader, options);
+                        break;
+                    case 2:
+                        __Status__ = formatterResolver.GetFormatterWithVerify<global::Model.Status>().Deserialize(ref reader, options);
+                        break;
+                    default:
+                        reader.Skip();
+                        break;
+                }
+            }
+
+            var ____result = new global::Model.Player();
+            ____result.Name = __Name__;
+            ____result.Mails = __Mails__;
+            ____result.Status = __Status__;
             return ____result;
         }
     }
