@@ -29,7 +29,7 @@
       <Private>false</Private>
     </Reference>
     <Reference Include="UnityEngine">
-      <HintPath>C:\Program Files\Unity\Hub\Editor\2018.4.11f1\Editor\Data\Managed\UnityEngine.dll</HintPath>
+      <HintPath>..\ReferenceAssembly\UnityEngine.dll</HintPath>
       <Private>false</Private>
     </Reference>
   </ItemGroup>

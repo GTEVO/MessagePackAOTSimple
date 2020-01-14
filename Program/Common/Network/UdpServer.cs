@@ -7,6 +7,7 @@ using System.Threading.Tasks.Dataflow;
 using System.Buffers;
 using System.Collections.Concurrent;
 using System.Net.Sockets.Kcp;
+using System.Buffers.Binary;
 
 namespace CommonLib.Network
 {
@@ -26,9 +27,11 @@ namespace CommonLib.Network
             var listenIp = new IPEndPoint(IPAddress.Any, 8000);
             _socket = new Socket(listenIp.AddressFamily, SocketType.Dgram, ProtocolType.Udp);
             _socket.Bind(listenIp);
-            var recvTask = new Task(async () => {
+            var recvTask = new Task(async () =>
+            {
                 Debug.LogFormat("Recv Bytes From Network Task Run At {0} Thread", Thread.CurrentThread.ManagedThreadId);
-                while (!_cancellationTokenSource.IsCancellationRequested) {
+                while (!_cancellationTokenSource.IsCancellationRequested)
+                {
                     var result = await Task.Factory.FromAsync(BeginRecvFrom, EndRecvFrom, _socket, TaskCreationOptions.AttachedToParent);
                     //  Pool Get
                     var msgpack = NetworkPackage.Pool.Get();
@@ -42,21 +45,15 @@ namespace CommonLib.Network
             recvTask.Start();
             // recv
             var cpuNum = Environment.ProcessorCount;
-            for (int i = 0; i < cpuNum; i++) {
-                Task.Run(async () => {
+            for (int i = 0; i < cpuNum; i++)
+            {
+                Task.Run(async () =>
+                {
                     Debug.LogFormat("Process NetPackage Task Run At {0} Thread", Thread.CurrentThread.ManagedThreadId);
-                    do {
+                    do
+                    {
                         var package = await _recvQueue.ReceiveAsync();
-                        if (!_networkLinks.TryGetValue(package.Remote, out var link)) {
-                            link = new KcpLink();
-                            link.OnRecvKcpPackage += Link_OnRecvKcpPackage;
-                            var s = new KcpUdpCallback(_socket, package.Remote);
-                            link.Run(1, s);
-                            _networkLinks.TryAdd(package.Remote, link);
-                        }
-                        await link.RecvFromRemoteAsync(package.MemoryOwner.Memory.Slice(0, package.Size));
-                        //  Pool Return
-                        NetworkBasePackage.Pool.Return(package);
+                        await ParseCmd(package);
                     } while (true);
                 }, _cancellationTokenSource.Token);
             }
@@ -74,9 +71,70 @@ namespace CommonLib.Network
 
         public void SendBytes(byte[] bytes)
         {
-            foreach (var item in _networkLinks) {
+            foreach (var item in _networkLinks)
+            {
                 item.Value.SendToRemoteAsync(bytes);
             }
+        }
+
+        private async Task ParseCmd(NetworkPackage package)
+        {
+            ReadOnlyMemory<byte> buffer = package.MemoryOwner.Memory.Slice(0, package.Size);
+            byte cmd = buffer.Span[0];
+            switch (cmd)
+            {
+                case (byte)NetworkCmd.ConnectTo:
+                    {
+                        //  TODO 验证IdToken，返回 对应的 conv
+                        uint conv = 12306;
+                        if (_networkLinks.TryRemove(package.Remote, out var link))
+                        {
+                            //  移除旧连接
+                            link.OnRecvKcpPackage -= Link_OnRecvKcpPackage;
+                            link.Stop();
+                        }
+                        //  建立连接
+                        link = new KcpLink();
+                        link.OnRecvKcpPackage += Link_OnRecvKcpPackage;
+                        var s = new KcpUdpCallback(_socket, package.Remote);
+                        link.Run(conv, s);
+                        _networkLinks.TryAdd(package.Remote, link);
+
+                        var sendBytes = new byte[5];
+                        sendBytes[0] = (byte)NetworkCmd.ConnectTo;
+                        BinaryPrimitives.WriteUInt32LittleEndian(new Span<byte>(sendBytes, 1, 4), conv);
+                        _socket.SendTo(sendBytes, SocketFlags.None, package.Remote);
+                    }
+                    break;
+                case (byte)NetworkCmd.DependableTransform:
+                    {
+                        if (_networkLinks.TryGetValue(package.Remote, out var link))
+                        {
+                            await link.RecvFromRemoteAsync(buffer.Slice(1));
+                        }
+                        else
+                        {
+                            //  这是一个无效连接
+                        }
+                    }
+                    break;
+                case (byte)NetworkCmd.KeepAlive:
+                    //  TODO
+                    break;
+                case (byte)NetworkCmd.DisConnect:
+                    {
+                        if (_networkLinks.TryRemove(package.Remote, out var link))
+                        {
+                            link.Stop();
+                        }
+                    }
+                    break;
+            }
+
+
+            //  Pool Return
+            NetworkBasePackage.Pool.Return(package);
+
         }
 
         #region Implement Socket Cross Platform RecvFromAsync
@@ -89,7 +147,8 @@ namespace CommonLib.Network
         private RecvResult EndRecvFrom(IAsyncResult result)
         {
             var recvBytes = _socket.EndReceiveFrom(result, ref _remoteEP);
-            var _result = new RecvResult {
+            var _result = new RecvResult
+            {
                 len = recvBytes,
                 remote = _remoteEP,
             };

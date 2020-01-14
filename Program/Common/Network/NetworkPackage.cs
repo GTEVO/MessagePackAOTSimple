@@ -7,6 +7,14 @@ using System.Text;
 
 namespace CommonLib.Network
 {
+    public enum NetworkCmd
+    {
+        ConnectTo = 1 << 2,
+        DependableTransform = 1 << 3,
+        KeepAlive = 1 << 4,
+        DisConnect = 1 << 5,
+    }
+
     public struct RecvResult
     {
         public int len;

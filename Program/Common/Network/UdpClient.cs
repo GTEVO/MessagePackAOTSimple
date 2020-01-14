@@ -5,7 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Threading.Tasks.Dataflow;
 using System.Buffers;
-
+using System.Buffers.Binary;
 
 namespace CommonLib.Network
 {
@@ -17,47 +17,93 @@ namespace CommonLib.Network
 
         Socket _socket;
 
-        public KcpLink NetworkLink { get; private set; }
+        public event Action<IMemoryOwner<byte>, int, uint> OnRecvKcpPackage;
+
+        private KcpLink _kcpLink;
 
         public void Run()
         {
             _buffer = new byte[ushort.MaxValue];
 
-            NetworkLink = new KcpLink();
-
             _cancellationTokenSource = new CancellationTokenSource();
-            _cancellationTokenSource.Token.Register(() => {
+            _cancellationTokenSource.Token.Register(() =>
+            {
                 _socket.Close();
             });
 
-            _remoteEP = new IPEndPoint(IPAddress.Parse("192.168.0.116"), 8000);
+            _remoteEP = new IPEndPoint(IPAddress.Loopback, 8000);
             _socket = new Socket(_remoteEP.AddressFamily, SocketType.Dgram, ProtocolType.Udp);
             _socket.Connect(_remoteEP);
 
-            NetworkLink.Run(1, new KcpUdpCallback(_socket, _remoteEP));
-
-            // listen
-            var recvTask = new Task(async () => {
+            //  RecvFromAsync Task
+            var recvTask = new Task(async () =>
+            {
                 Debug.LogFormat("Recv Bytes From Network Task Run At {0} Thread", Thread.CurrentThread.ManagedThreadId);
-                while (!_cancellationTokenSource.IsCancellationRequested) {
+                while (!_cancellationTokenSource.IsCancellationRequested)
+                {
                     var result = await Task.Factory.FromAsync(BeginRecvFrom, EndRecvFrom
                         , _socket, TaskCreationOptions.AttachedToParent);
-                    await NetworkLink.RecvFromRemoteAsync(new ReadOnlyMemory<byte>(_buffer, 0, result.len));
+                    var memory = new ReadOnlyMemory<byte>(_buffer, 0, result.len);
+                    await ParseCmd(memory);
                 }
             }, _cancellationTokenSource.Token, TaskCreationOptions.LongRunning);
             recvTask.Start();
+
+            ConnectTo();
         }
 
         public void Stop()
         {
             _cancellationTokenSource.Cancel();
-            NetworkLink.Stop();
+            if (_kcpLink != null)
+            {
+                _kcpLink.OnRecvKcpPackage -= KcpLink_OnRecvKcpPackage;
+                _kcpLink?.Stop();
+            }
         }
 
         public void SendMessage<T>(T msg)
         {
             var bytes = MessageProcessor.PackageMessage(msg);
-            NetworkLink.SendToRemoteAsync(bytes);
+            _kcpLink.SendToRemoteAsync(bytes);
+        }
+
+        public void ConnectTo()
+        {
+            //  
+            var cmd = new byte[1400];
+            cmd[0] = (byte)NetworkCmd.ConnectTo;
+            // 请求参数，例如IdToken放在 cmd[0]后面
+            _socket.Send(cmd, SocketFlags.None);
+        }
+
+        private async Task ParseCmd(ReadOnlyMemory<byte> buffer)
+        {
+            byte cmd = buffer.Span[0];
+            switch (cmd)
+            {
+                case (byte)NetworkCmd.ConnectTo:
+                    _kcpLink = new KcpLink();
+                    uint conv = BinaryPrimitives.ReadUInt32LittleEndian(buffer.Span.Slice(1));
+                    _kcpLink.Run(conv, new KcpUdpCallback(_socket, _remoteEP));
+                    _kcpLink.OnRecvKcpPackage += KcpLink_OnRecvKcpPackage;
+                    break;
+                case (byte)NetworkCmd.DependableTransform:
+                    await _kcpLink.RecvFromRemoteAsync(buffer.Slice(1));
+                    break;
+                case (byte)NetworkCmd.KeepAlive:
+                    //  TODO
+                    break;
+                case (byte)NetworkCmd.DisConnect:
+                    _kcpLink.OnRecvKcpPackage -= KcpLink_OnRecvKcpPackage;
+                    _kcpLink.Stop();
+                    break;
+            }
+        }
+
+        private void KcpLink_OnRecvKcpPackage(IMemoryOwner<byte> arg1, int arg2, uint arg3)
+        {
+            OnRecvKcpPackage?.Invoke(arg1, arg2, arg3);
         }
 
         #region Implement Socket Cross Platform RecvFromAsync
@@ -69,7 +115,8 @@ namespace CommonLib.Network
         private RecvResult EndRecvFrom(IAsyncResult result)
         {
             var recvBytes = _socket.EndReceiveFrom(result, ref _remoteEP);
-            var rr = new RecvResult {
+            var rr = new RecvResult
+            {
                 len = recvBytes,
                 remote = _remoteEP,
             };

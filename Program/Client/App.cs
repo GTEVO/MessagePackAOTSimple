@@ -25,7 +25,7 @@ namespace ClientLib
 
             UdpClient = new UdpClient();
             UdpClient.Run();
-            UdpClient.NetworkLink.OnRecvKcpPackage += NetworkLink_OnRecvKcpPackage;
+            UdpClient.OnRecvKcpPackage += NetworkLink_OnRecvKcpPackage;
         }
 
         private void NetworkLink_OnRecvKcpPackage(IMemoryOwner<byte> memoryOwner, int len, uint conv)

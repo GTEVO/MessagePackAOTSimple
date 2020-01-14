@@ -21,6 +21,8 @@ namespace CommonLib.Network
         private BufferBlock<NetworkBasePackage> _recvFromRemote;
         private BufferBlock<NetworkBasePackage> _recvFromLocal;
 
+        public uint Conv { get { return _conv; } }
+
         /// <summary>
         /// 必须保证回调顺序与远端发送顺序一致
         /// </summary>
@@ -40,37 +42,48 @@ namespace CommonLib.Network
             _kcp.SetMtu(MTU);
 
             _tokenSource = new CancellationTokenSource();
-            _tokenSource.Token.Register(() => {
+            _tokenSource.Token.Register(() =>
+            {
                 _kcp.Dispose();
                 _kcp = null;
             });
 
-            Task.Run(async () => {
-#pragma warning disable CS4014 // 由于此调用不会等待，因此在调用完成前将继续执行当前方法
+            Task.Run(async () =>
+            {
+#pragma warning disable CS4014
+                // 这样写的目的，在服务器上，压解缩、加解密可以利用多核
                 //  input from lower level
-                Task.Factory.StartNew(async () => {
-                    do {
+                Task.Factory.StartNew(async () =>
+                {
+                    do
+                    {
                         var package = await _recvFromRemote.ReceiveAsync(_tokenSource.Token);
                         var result = _kcp.Input(package.MemoryOwner.Memory.Span.Slice(0, package.Size));
-                        while (result == 0) {
+                        while (result == 0)
+                        {
                             var (buffer, avalidLength) = _kcp.TryRecv();
                             if (buffer == null)
                                 break;
+                            //  在此解压、解密
                             OnRecvKcpPackage?.Invoke(buffer, avalidLength, _conv);
                         };
                     } while (!_tokenSource.IsCancellationRequested);
                 }, _tokenSource.Token, TaskCreationOptions.AttachedToParent, TaskScheduler.Default);
                 //  send by user
-                Task.Factory.StartNew(async () => {
-                    do {
+                Task.Factory.StartNew(async () =>
+                {
+                    do
+                    {
                         var package = await _recvFromLocal.ReceiveAsync(_tokenSource.Token);
+                        //  在此压缩、加密
                         _kcp.Send(package.MemoryOwner.Memory.Span.Slice(0, package.Size));
                         NetworkBasePackage.Pool.Return(package);
                     } while (!_tokenSource.IsCancellationRequested);
                 }, _tokenSource.Token, TaskCreationOptions.AttachedToParent, TaskScheduler.Default);
-#pragma warning restore CS4014 // 由于此调用不会等待，因此在调用完成前将继续执行当前方法
+#pragma warning restore CS4014
                 //  update
-                do {
+                do
+                {
                     var now = DateTime.UtcNow;
                     await _kcp.UpdateAsync(now);
                     now = DateTime.UtcNow;

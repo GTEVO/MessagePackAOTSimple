@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Buffers;
+using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
@@ -20,8 +21,21 @@ namespace CommonLib.Network
 
         public void Output(IMemoryOwner<byte> buffer, int avalidLength)
         {
+            byte[] array;
+            if (buffer.Memory.Length > avalidLength)
+            {
+                array = buffer.Memory.ToArray();
+                Buffer.BlockCopy(array, 0, array, 1, avalidLength);
+                ++avalidLength;
+            }
+            else
+            {
+                array = new byte[++avalidLength];
+                Buffer.BlockCopy(array, 0, buffer.Memory.ToArray(), 1, avalidLength);
+            }
+            array[0] = (byte)NetworkCmd.DependableTransform;
             Debug.LogFormat("send udp bytes = {0}", avalidLength);
-            _Socket.SendTo(buffer.Memory.Span.ToArray(), avalidLength, SocketFlags.None, _IpendPoint);
+            _Socket.SendTo(array, avalidLength, SocketFlags.None, _IpendPoint);
             buffer.Dispose();
         }
     }
