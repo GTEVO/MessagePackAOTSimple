@@ -128,6 +128,7 @@ public class MsgPackTest : MonoBehaviour
 
     public void OnClickOnHandleMsg()
     {
+        /*
         // msg1 先注册处理器
         MessageProcessor.RegisterHandler<TestMsg1>(HandleMsg1);
         var msg = MessageProcessor.PackageMessage(new TestMsg1 {
@@ -141,6 +142,7 @@ public class MsgPackTest : MonoBehaviour
         });
         MessageProcessor.RegisterHandler<TestMsg2>(HandleMsg2);
         MessageProcessor.ProcessBytePackageAsync(msg);
+        */
 
         //
         var loginReq = new LoginReqMsg {

@@ -20,6 +20,7 @@ namespace CommonLib.Network
 
         public void Output(IMemoryOwner<byte> buffer, int avalidLength)
         {
+            Debug.LogFormat("send udp bytes = {0}", avalidLength);
             _Socket.SendTo(buffer.Memory.Span.ToArray(), avalidLength, SocketFlags.None, _IpendPoint);
             buffer.Dispose();
         }

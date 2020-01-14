@@ -46,8 +46,9 @@ namespace CommonLib.Network
             });
 
             Task.Run(async () => {
+#pragma warning disable CS4014 // 由于此调用不会等待，因此在调用完成前将继续执行当前方法
                 //  input from lower level
-                Task<Task> recvTask = Task.Factory.StartNew(async () => {
+                Task.Factory.StartNew(async () => {
                     do {
                         var package = await _recvFromRemote.ReceiveAsync(_tokenSource.Token);
                         var result = _kcp.Input(package.MemoryOwner.Memory.Span.Slice(0, package.Size));
@@ -60,13 +61,14 @@ namespace CommonLib.Network
                     } while (!_tokenSource.IsCancellationRequested);
                 }, _tokenSource.Token, TaskCreationOptions.AttachedToParent, TaskScheduler.Default);
                 //  send by user
-                Task<Task> sendTask = Task.Factory.StartNew(async () => {
+                Task.Factory.StartNew(async () => {
                     do {
                         var package = await _recvFromLocal.ReceiveAsync(_tokenSource.Token);
                         _kcp.Send(package.MemoryOwner.Memory.Span.Slice(0, package.Size));
                         NetworkBasePackage.Pool.Return(package);
                     } while (!_tokenSource.IsCancellationRequested);
                 }, _tokenSource.Token, TaskCreationOptions.AttachedToParent, TaskScheduler.Default);
+#pragma warning restore CS4014 // 由于此调用不会等待，因此在调用完成前将继续执行当前方法
                 //  update
                 do {
                     var now = DateTime.UtcNow;

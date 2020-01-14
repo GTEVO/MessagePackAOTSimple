@@ -1,10 +1,9 @@
 ﻿using System;
-using MsgDefine;
 using System.Threading.Tasks;
 using CommonLib;
 using CommonLib.Network;
 using Server.Serializer;
-using System.Threading;
+using MsgDefine.TestMsg;
 
 namespace Server
 {
@@ -30,6 +29,10 @@ namespace Server
 
             MessageProcessor messageProcessor = new MessageProcessor();
             messageProcessor.Run(TaskScheduler.Default);
+            MessageProcessor.RegisterHandler<LoginReqMsg>(msg => {
+                Debug.LogFormat("{0}-{1}-{2}", msg.Account, msg.Password, msg.Extra);
+            });
+
 
             var udpServer = new UdpServer();
             udpServer.Start();
