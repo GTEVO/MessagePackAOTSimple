@@ -8,3 +8,4 @@ unity 中使用 MessagePack 发布的release包<br/>
 
 ## 解决
 引入一个“引用程序集”，依赖它通过编译，运行时各自仍使用自身的 MessagePack 库。在这个程序集里需要定义MessagePack里的自定义属性类，例如MessagePackObjectAttribute等。本示例中，输出名为 MessagePack.Annotations，与服务器nuget中的MessagePack结构有关。相应的，unity中也需要定义一个名为MessagePack.Annotations程序集引用文件。
+en...... 专走邪门歪道 ^~^
