@@ -17,42 +17,50 @@ namespace CommonLib.Network
 
         Socket _socket;
 
-        BufferBlock<NetworkPack> _recvQueue = new BufferBlock<NetworkPack>();
+        public KcpLink NetworkLink { get; private set; }
 
-        public void Start()
+        public void Run()
         {
             _buffer = new byte[ushort.MaxValue];
 
+            NetworkLink = new KcpLink();
+
             _cancellationTokenSource = new CancellationTokenSource();
+            _cancellationTokenSource.Token.Register(() => {
+                _socket.Close();
+            });
 
             _remoteEP = new IPEndPoint(IPAddress.Parse("192.168.0.116"), 8000);
             _socket = new Socket(_remoteEP.AddressFamily, SocketType.Dgram, ProtocolType.Udp);
             _socket.Connect(_remoteEP);
+
+            NetworkLink.Run(1, new KcpUdpCallback(_socket, _remoteEP));
+
+            // listen
             var recvTask = new Task(async () => {
+                Debug.LogFormat("Recv Bytes From Network Task Run At {0} Thread", Thread.CurrentThread.ManagedThreadId);
                 while (!_cancellationTokenSource.IsCancellationRequested) {
-                    var result = await Task.Factory.FromAsync(BeginRecvFrom, EndRecvFrom, _socket, TaskCreationOptions.AttachedToParent);
-                    var msgpack = NetworkPack.NetworkPackPool.Get();
-                    msgpack.remote = result.remote;
-                    msgpack.size = result.len;
-                    msgpack.bytes = MemoryPool<byte>.Shared.Rent(result.len);
-                    ((Span<byte>)_buffer).Slice(0, result.len).CopyTo(msgpack.bytes.Memory.Span);
-                    await _recvQueue.SendAsync(msgpack);
+                    var result = await Task.Factory.FromAsync(BeginRecvFrom, EndRecvFrom
+                        , _socket, TaskCreationOptions.AttachedToParent);
+                    await NetworkLink.RecvFromRemoteAsync(new ReadOnlyMemory<byte>(_buffer, 0, result.len));
                 }
             }, _cancellationTokenSource.Token, TaskCreationOptions.LongRunning);
             recvTask.Start();
         }
 
-        public Task<NetworkPack> RecvAsync()
+        public void Stop()
         {
-            return _recvQueue.ReceiveAsync();
+            _cancellationTokenSource.Cancel();
+            NetworkLink.Stop();
         }
 
-
-        public void Send(byte[] data)
+        public void SendMessage<T>(T msg)
         {
-            _socket.SendTo(data, _remoteEP);
+            var bytes = MessageProcessor.PackageMessage(msg);
+            NetworkLink.SendToRemoteAsync(bytes);
         }
 
+        #region Implement Socket Cross Platform RecvFromAsync
         private IAsyncResult BeginRecvFrom(AsyncCallback callback, object state)
         {
             var result = _socket.BeginReceiveFrom(_buffer, 0, ushort.MaxValue, SocketFlags.None, ref _remoteEP, callback, state);
@@ -67,5 +75,6 @@ namespace CommonLib.Network
             };
             return rr;
         }
+        #endregion
     }
 }

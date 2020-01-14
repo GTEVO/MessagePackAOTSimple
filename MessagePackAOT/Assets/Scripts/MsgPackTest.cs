@@ -29,7 +29,7 @@ public class MsgPackTest : MonoBehaviour
     private void Awake()
     {
         App.Instacne.Init();
-        App.Instacne.TestHandler += HandleMsg3;
+
         _cancellationTokenSource = new CancellationTokenSource();
         StaticCompositeResolver.Instance.Register(new IFormatterResolver[]
         {
@@ -62,18 +62,20 @@ public class MsgPackTest : MonoBehaviour
         text.transform.localScale = Vector3.one;
     }
 
-    private void HandleMsg1(TestMsg1 msg, EndPoint remote)
+    private void HandleMsg1(TestMsg1 msg)
     {
         var type = msg.GetType();
         Debug.LogFormat("M1 - {0}", msg.Name);
         ShowAsText(string.Format("handle msg => {0} - {1}", type.FullName, msg.Name));
+        MessageProcessor.UnRegisterHandler<TestMsg1>(HandleMsg1);
     }
 
-    private void HandleMsg2(TestMsg2 msg, EndPoint remote)
+    private void HandleMsg2(TestMsg2 msg)
     {
         var type = msg.GetType();
         Debug.LogFormat("M2 - {0}", msg.Age);
         ShowAsText(string.Format("handle msg => {0} - {1}", type.FullName, msg.Age));
+        MessageProcessor.UnRegisterHandler<TestMsg2>(HandleMsg2);
     }
 
     private void HandleMsg3(LoginRspMsg msg)
@@ -131,16 +133,14 @@ public class MsgPackTest : MonoBehaviour
         var msg = MessageProcessor.PackageMessage(new TestMsg1 {
             Name = "GT"
         });
-        MessageProcessor.ProcessMsgPack(msg, null);
-        MessageProcessor.UnRegisterHandler<TestMsg1>(HandleMsg1);
+        MessageProcessor.ProcessBytePackageAsync(msg);
 
         // msg2 先打包
         msg = MessageProcessor.PackageMessage(new TestMsg2 {
             Age = 26
         });
         MessageProcessor.RegisterHandler<TestMsg2>(HandleMsg2);
-        MessageProcessor.ProcessMsgPack(msg, null);
-        MessageProcessor.UnRegisterHandler<TestMsg2>(HandleMsg2);
+        MessageProcessor.ProcessBytePackageAsync(msg);
 
         //
         var loginReq = new LoginReqMsg {
@@ -148,9 +148,6 @@ public class MsgPackTest : MonoBehaviour
             Password = "PWD",
             Extra = "额外"
         };
-        var loginReqBytes = MessagePackSerializer.Serialize(
-             MessageProcessor.PackageMessage(loginReq));
-        App.Instacne.UDPClient.Send(loginReqBytes); ;
-
+        App.Instacne.UdpClient.SendMessage(loginReq);
     }
 }

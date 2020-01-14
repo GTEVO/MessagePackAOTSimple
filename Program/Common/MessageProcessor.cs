@@ -3,25 +3,33 @@ using System.Collections.Generic;
 using System.Reflection;
 using MsgDefine;
 using CommonLib.Serializer;
-using System.Net;
+using System.Buffers;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Threading.Tasks.Dataflow;
+using CommonLib.Network;
 
 namespace CommonLib
 {
-    public static class MessageProcessor
+    public class MessageProcessor
     {
         public static ISerializer DefaultSerializer { get; set; }
 
+        public readonly static BufferBlock<NetworkBasePackage> _waitForProcessPackage = new BufferBlock<NetworkBasePackage>();
+
+        private readonly CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
+
         private interface IHandler
         {
-            void Unpack(byte[] data, EndPoint remote);
-            MessagePackage Package<T>(T data);
+            void ReadMessage(ReadOnlyMemory<byte> data);
+            byte[] Package<T>(T data);
         }
 
         private static class HandlerCache<MsgType>
         {
             private class DefaultHandler : IHandler
             {
-                public event Action<MsgType, EndPoint> DataHandler;
+                public event Action<MsgType> DataHandler;
                 private readonly ISerializer _serializer;
 
                 public DefaultHandler(ISerializer serializer)
@@ -31,20 +39,17 @@ namespace CommonLib
                     Debug.LogFormat("Handler: {0} Be Created", type.FullName);
                 }
 
-                public void Unpack(byte[] data, EndPoint remote)
+                public void ReadMessage(ReadOnlyMemory<byte> data)
                 {
                     if (DataHandler != null) {
                         var msg = _serializer.Deserialize<MsgType>(data);
-                        DataHandler(msg, remote);
+                        DataHandler(msg);
                     }
                 }
 
-                public MessagePackage Package<T>(T data)
+                public byte[] Package<T>(T data)
                 {
-                    return new MessagePackage {
-                        Id = _id,
-                        Data = _serializer.Serialize<T>(data)
-                    };
+                    return _serializer.Package(_id, data);
                 }
             }
 
@@ -65,7 +70,15 @@ namespace CommonLib
                 }
             }
 
-            public static void RegisterHandler(Action<MsgType, EndPoint> action)
+            public static byte[] PackageMessage(MsgType message)
+            {
+                if (_handler == null)
+                    return default;
+                else
+                    return _handler.Package(message);
+            }
+
+            public static void RegisterHandler(Action<MsgType> action)
             {
                 if (_handler != null) {
                     _handler.DataHandler += action;
@@ -75,7 +88,7 @@ namespace CommonLib
                 }
             }
 
-            public static void UnRegisterHandler(Action<MsgType, EndPoint> action)
+            public static void UnRegisterHandler(Action<MsgType> action)
             {
                 if (_handler != null) {
                     _handler.DataHandler -= action;
@@ -85,41 +98,67 @@ namespace CommonLib
                 }
             }
 
-            public static MessagePackage PackageMessage(MsgType message)
-            {
-                if (_handler == null)
-                    return default;
-                else
-                    return _handler.Package<MsgType>(message);
-            }
         }
 
         private static readonly Dictionary<int, IHandler> _handlers = new Dictionary<int, IHandler>();
 
-        public static void RegisterHandler<T>(Action<T, EndPoint> action)
+        public static void RegisterHandler<T>(Action<T> action)
         {
             HandlerCache<T>.RegisterHandler(action);
         }
 
-        public static void UnRegisterHandler<T>(Action<T, EndPoint> action)
+        public static void UnRegisterHandler<T>(Action<T> action)
         {
             HandlerCache<T>.UnRegisterHandler(action);
         }
 
-        /*******************************************************/
-        public static void ProcessMsgPack(MessagePackage msg, EndPoint remote)
+        public static Task ProcessBytePackageAsync(IMemoryOwner<byte> memoryOwner, int size)
         {
-            if (_handlers.TryGetValue(msg.Id, out var handler)) {
-                handler.Unpack(msg.Data, remote);
-            }
-            else {
-                Debug.LogWarningFormat("HandlerManager: MsgId {0} No Handler To Process", msg.Id);
-            }
+            //  Pool Get
+            var package = NetworkBasePackage.Pool.Get();
+            package.MemoryOwner = memoryOwner;
+            package.Size = size;
+            return _waitForProcessPackage.SendAsync(package);
         }
 
-        public static MessagePackage PackageMessage<T>(T message)
+        public static Task ProcessBytePackageAsync(ReadOnlyMemory<byte> memory)
+        {
+            //  Pool Get
+            var package = NetworkBasePackage.Pool.Get();
+            package.MemoryOwner = MemoryPool<byte>.Shared.Rent(memory.Length);
+            memory.CopyTo(package.MemoryOwner.Memory);
+            package.Size = memory.Length;
+            return _waitForProcessPackage.SendAsync(package);
+        }
+
+        public static byte[] PackageMessage<T>(T message)
         {
             return HandlerCache<T>.PackageMessage(message);
+        }
+
+        public void Run(TaskScheduler scheduler)
+        {
+            var task = new Task(async () => {
+                while (true) {
+                    var package = await _waitForProcessPackage.ReceiveAsync();
+                    var bytes = package.MemoryOwner.Memory.Slice(0, package.Size);
+                    var msgPack = DefaultSerializer.Unpack(bytes);
+                    if (_handlers.TryGetValue(msgPack.Id, out var handler)) {
+                        handler.ReadMessage(msgPack.Data);
+                    }
+                    else {
+                        Debug.LogWarningFormat("HandlerManager: MsgId {0} No Handler To Process");
+                    }
+                    //  Pool Return
+                    NetworkBasePackage.Pool.Return(package);
+                }
+            }, _cancellationTokenSource.Token);
+            task.Start(scheduler);
+        }
+
+        public void Stop()
+        {
+            _cancellationTokenSource.Cancel();
         }
     }
 }

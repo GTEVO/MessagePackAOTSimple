@@ -1,4 +1,5 @@
-﻿using System;
+﻿using MsgDefine;
+using System;
 
 namespace CommonLib.Serializer
 {
@@ -6,5 +7,8 @@ namespace CommonLib.Serializer
     {
         byte[] Serialize<MsgType>(MsgType obj);
         MsgType Deserialize<MsgType>(ReadOnlyMemory<byte> bytes);
+
+        byte[] Package<MsgType>(int msgId, MsgType obj);
+        MessagePackage Unpack(ReadOnlyMemory<byte> bytes);
     }
 }

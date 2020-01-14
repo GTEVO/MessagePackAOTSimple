@@ -11,6 +11,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\KCP\KCP.csproj" />
     <ProjectReference Include="..\MsgDefine\MsgDefine.csproj" />
   </ItemGroup>
 

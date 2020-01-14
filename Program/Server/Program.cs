@@ -4,7 +4,7 @@ using System.Threading.Tasks;
 using CommonLib;
 using CommonLib.Network;
 using Server.Serializer;
-using MsgDefine.TestMsg;
+using System.Threading;
 
 namespace Server
 {
@@ -28,9 +28,13 @@ namespace Server
             Debug.DefaultDebugger = new ServerConsoleDebugger();
             MessageProcessor.DefaultSerializer = new MsgPackBitSerializer();
 
+            MessageProcessor messageProcessor = new MessageProcessor();
+            messageProcessor.Run(TaskScheduler.Default);
+
             var udpServer = new UdpServer();
             udpServer.Start();
 
+            /*
             MessageProcessor.RegisterHandler<LoginReqMsg>((msg, remote) => {
                 Debug.LogFormat("LoginReqMsg - {0}|{1}|{2}", msg.Account, msg.Password, msg.Extra);
                 var loginReq = new LoginRspMsg {
@@ -53,25 +57,7 @@ namespace Server
                      MessageProcessor.PackageMessage(loginReq));
                 udpServer.Send(loginReqBytes, remote);
             });
-
-            Task.Run(async () => {
-                do {
-                    var pack = await udpServer.RecvAsync();
-                    MessagePackage messagePackage = null;
-                    try {
-                        var bytes = pack.bytes.Memory.Span.Slice(0, pack.size).ToArray();
-                        ReadOnlyMemory<byte> readOnlyMemory = new ReadOnlyMemory<byte>(bytes);
-                        messagePackage = MessageProcessor.DefaultSerializer.Deserialize<MessagePackage>(readOnlyMemory);
-                        MessageProcessor.ProcessMsgPack(messagePackage, pack.remote);
-                    }
-                    catch (Exception e) {
-                        Debug.LogErrorFormat("{0}", e);
-                    }
-                    finally {
-                        NetworkPack.NetworkPackPool.Return(pack);
-                    }
-                } while (true);
-            });
+            */
 
             Console.ReadLine();
         }
