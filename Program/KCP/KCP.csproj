@@ -12,6 +12,7 @@
   </ItemGroup>
 
   <!--调试符号配置-->
+  <!--
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
     <DefineConstants>TRACE;DEBUG</DefineConstants>
     <DebugSymbols>true</DebugSymbols>
@@ -25,5 +26,6 @@
     <Optimize>true</Optimize>
     <DebugType>full</DebugType>
   </PropertyGroup>
+  -->
 
 </Project>

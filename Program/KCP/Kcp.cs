@@ -2,7 +2,6 @@
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
-using System.Threading;
 using System.Threading.Tasks;
 using static System.Math;
 using BufferOwner = System.Buffers.IMemoryOwner<byte>;
@@ -131,16 +130,10 @@ namespace System.Net.Sockets.Kcp
             }
         }
 
-        /// <summary>
-        /// 最大报文段长度
-        /// </summary>
         uint mss;
         int state;
         uint snd_una;
         uint snd_nxt;
-        /// <summary>
-        /// 下一个等待接收消息ID
-        /// </summary>
         uint rcv_nxt;
         uint ts_recent;
         uint ts_lastack;
@@ -188,7 +181,8 @@ namespace System.Net.Sockets.Kcp
         private TaskCompletionSource<bool> wait_hander;
 
         /// <summary>
-        /// 发送 ack 队列 
+        /// 发送 ack 队列，接收方从底层（远端）收到一个Push命令时，将该命令对应的ack添加进队列
+        /// 然后在 FLush 时，将所有ack送入底层输出，发送给发送方（远端），并清空该队列
         /// </summary>
         ConcurrentQueue<(uint sn, uint ts)> acklist = new ConcurrentQueue<(uint sn, uint ts)>();
         /// <summary>
@@ -197,10 +191,11 @@ namespace System.Net.Sockets.Kcp
         ConcurrentQueue<KcpSegment> snd_queue = new ConcurrentQueue<KcpSegment>();
         /// <summary>
         /// 正在发送列表
+        /// 收到一个确认ack则移除一个对应的KcpSegment
         /// </summary>
         LinkedList<KcpSegment> snd_buf = new LinkedList<KcpSegment>();
         /// <summary>
-        /// 正在等待触发接收回调函数消息列表
+        /// 正在等待触发接收回调函数消息列表，队列长度与rcv_wnd一同本地接受控制滑动窗口大小和远端发送窗口大小
         /// <para>需要执行的操作  添加 遍历 删除</para>
         /// </summary>
         List<KcpSegment> rcv_queue = new List<KcpSegment>();
@@ -966,6 +961,7 @@ namespace System.Net.Sockets.Kcp
             return 0;
         }
 
+        /// <returns></returns>
         ushort Wnd_unused()
         {
             ///此处没有加锁，所以不要内联变量，否则可能导致 判断变量和赋值变量不一致
@@ -1263,7 +1259,13 @@ namespace System.Net.Sockets.Kcp
 
                 Flush();
             }
-            if (snd_buf.Count == 0) {
+            var cwnd_ = Min(snd_wnd, rmt_wnd);
+            if (nocwnd == 0) {
+                cwnd_ = Min(cwnd, cwnd_);
+            }
+            if (cwnd_ == 0)
+                return;
+            if (snd_buf.Count == 0 && snd_queue.Count == 0) {
                 lock (wait_handerLock) {
                     wait_hander = new TaskCompletionSource<bool>();
                 }
