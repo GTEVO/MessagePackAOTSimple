@@ -26,12 +26,11 @@ namespace CommonLib.Network
             // listen
             var listenIp = new IPEndPoint(IPAddress.Any, 8000);
             _socket = new Socket(listenIp.AddressFamily, SocketType.Dgram, ProtocolType.Udp);
+            _socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
             _socket.Bind(listenIp);
-            var recvTask = new Task(async () =>
-            {
+            var recvTask = new Task(async () => {
                 Debug.LogFormat("Recv Bytes From Network Task Run At {0} Thread", Thread.CurrentThread.ManagedThreadId);
-                while (!_cancellationTokenSource.IsCancellationRequested)
-                {
+                while (!_cancellationTokenSource.IsCancellationRequested) {
                     var result = await Task.Factory.FromAsync(BeginRecvFrom, EndRecvFrom, _socket, TaskCreationOptions.AttachedToParent);
                     //  Pool Get
                     var msgpack = NetworkPackage.Pool.Get();
@@ -45,17 +44,15 @@ namespace CommonLib.Network
             recvTask.Start();
             // recv
             var cpuNum = Environment.ProcessorCount;
-            for (int i = 0; i < cpuNum; i++)
-            {
-                Task.Run(async () =>
-                {
+            for (int i = 0; i < cpuNum; i++) {
+                var task = new Task(async () => {
                     Debug.LogFormat("Process NetPackage Task Run At {0} Thread", Thread.CurrentThread.ManagedThreadId);
-                    do
-                    {
+                    do {
                         var package = await _recvQueue.ReceiveAsync();
                         await ParseCmd(package);
-                    } while (true);
-                }, _cancellationTokenSource.Token);
+                    } while (!_cancellationTokenSource.IsCancellationRequested);
+                }, _cancellationTokenSource.Token, TaskCreationOptions.LongRunning);
+                task.Start();
             }
         }
 
@@ -71,8 +68,7 @@ namespace CommonLib.Network
 
         public void SendBytes(byte[] bytes)
         {
-            foreach (var item in _networkLinks)
-            {
+            foreach (var item in _networkLinks) {
                 item.Value.SendToRemoteAsync(bytes);
             }
         }
@@ -81,14 +77,11 @@ namespace CommonLib.Network
         {
             ReadOnlyMemory<byte> buffer = package.MemoryOwner.Memory.Slice(0, package.Size);
             byte cmd = buffer.Span[0];
-            switch (cmd)
-            {
-                case (byte)NetworkCmd.ConnectTo:
-                    {
+            switch (cmd) {
+                case (byte)NetworkCmd.ConnectTo: {
                         //  TODO 验证IdToken，返回 对应的 conv
                         uint conv = 12306;
-                        if (_networkLinks.TryRemove(package.Remote, out var link))
-                        {
+                        if (_networkLinks.TryRemove(package.Remote, out var link)) {
                             //  移除旧连接
                             link.OnRecvKcpPackage -= Link_OnRecvKcpPackage;
                             link.Stop();
@@ -106,14 +99,11 @@ namespace CommonLib.Network
                         _socket.SendTo(sendBytes, SocketFlags.None, package.Remote);
                     }
                     break;
-                case (byte)NetworkCmd.DependableTransform:
-                    {
-                        if (_networkLinks.TryGetValue(package.Remote, out var link))
-                        {
+                case (byte)NetworkCmd.DependableTransform: {
+                        if (_networkLinks.TryGetValue(package.Remote, out var link)) {
                             await link.RecvFromRemoteAsync(buffer.Slice(1));
                         }
-                        else
-                        {
+                        else {
                             //  这是一个无效连接
                         }
                     }
@@ -121,10 +111,8 @@ namespace CommonLib.Network
                 case (byte)NetworkCmd.KeepAlive:
                     //  TODO
                     break;
-                case (byte)NetworkCmd.DisConnect:
-                    {
-                        if (_networkLinks.TryRemove(package.Remote, out var link))
-                        {
+                case (byte)NetworkCmd.DisConnect: {
+                        if (_networkLinks.TryRemove(package.Remote, out var link)) {
                             link.Stop();
                         }
                     }
@@ -147,8 +135,7 @@ namespace CommonLib.Network
         private RecvResult EndRecvFrom(IAsyncResult result)
         {
             var recvBytes = _socket.EndReceiveFrom(result, ref _remoteEP);
-            var _result = new RecvResult
-            {
+            var _result = new RecvResult {
                 len = recvBytes,
                 remote = _remoteEP,
             };

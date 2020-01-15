@@ -41,8 +41,7 @@ namespace CommonLib
 
                 public void ReadMessage(ReadOnlyMemory<byte> data)
                 {
-                    if (DataHandler != null)
-                    {
+                    if (DataHandler != null) {
                         var msg = _serializer.Deserialize<MsgType>(data);
                         DataHandler(msg);
                     }
@@ -60,15 +59,13 @@ namespace CommonLib
             static HandlerCache()
             {
                 var type = typeof(MsgType);
-                if (type.GetCustomAttribute(typeof(MessageIdAttribute), false) is MessageIdAttribute msgId)
-                {
+                if (type.GetCustomAttribute(typeof(MessageIdAttribute), false) is MessageIdAttribute msgId) {
                     _id = msgId.Id;
                     _handler = new DefaultHandler(DefaultSerializer);
                     Debug.LogFormat("HandlerCache: Cache New Handler:{0}, Id={1}", type.FullName, _id);
                     _handlers.Add(_id, _handler);
                 }
-                else
-                {
+                else {
                     Debug.LogWarningFormat("HandlerCache: {0} Is Not Msg !", type.FullName);
                 }
             }
@@ -83,24 +80,20 @@ namespace CommonLib
 
             public static void RegisterHandler(Action<MsgType> action)
             {
-                if (_handler != null)
-                {
+                if (_handler != null) {
                     _handler.DataHandler += action;
                 }
-                else
-                {
+                else {
                     Debug.LogWarningFormat("Can Not Register {0}", typeof(MsgType).FullName);
                 }
             }
 
             public static void UnRegisterHandler(Action<MsgType> action)
             {
-                if (_handler != null)
-                {
+                if (_handler != null) {
                     _handler.DataHandler -= action;
                 }
-                else
-                {
+                else {
                     Debug.LogWarningFormat("Can Not UnRegister {0}", typeof(MsgType).FullName);
                 }
             }
@@ -143,21 +136,21 @@ namespace CommonLib
             return HandlerCache<T>.PackageMessage(message);
         }
 
+        /// <summary>
+        /// 处理消息
+        /// </summary>
+        /// <param name="scheduler"> 回调上下文 </param>
         public void Run(TaskScheduler scheduler)
         {
-            var task = new Task(async () =>
-            {
-                while (true)
-                {
+            var task = new Task(async () => {
+                while (true) {
                     var package = await _waitForProcessPackage.ReceiveAsync();
                     var bytes = package.MemoryOwner.Memory.Slice(0, package.Size);
                     var msgPack = DefaultSerializer.Unpack(bytes);
-                    if (_handlers.TryGetValue(msgPack.Id, out var handler))
-                    {
+                    if (_handlers.TryGetValue(msgPack.Id, out var handler)) {
                         handler.ReadMessage(msgPack.Data);
                     }
-                    else
-                    {
+                    else {
                         Debug.LogWarningFormat("HandlerManager: MsgId {0} No Handler To Process");
                     }
                     //  Pool Return

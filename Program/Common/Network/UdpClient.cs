@@ -26,21 +26,19 @@ namespace CommonLib.Network
             _buffer = new byte[ushort.MaxValue];
 
             _cancellationTokenSource = new CancellationTokenSource();
-            _cancellationTokenSource.Token.Register(() =>
-            {
+            _cancellationTokenSource.Token.Register(() => {
                 _socket.Close();
             });
 
             _remoteEP = new IPEndPoint(IPAddress.Loopback, 8000);
             _socket = new Socket(_remoteEP.AddressFamily, SocketType.Dgram, ProtocolType.Udp);
+            _socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
             _socket.Connect(_remoteEP);
 
             //  RecvFromAsync Task
-            var recvTask = new Task(async () =>
-            {
+            var recvTask = new Task(async () => {
                 Debug.LogFormat("Recv Bytes From Network Task Run At {0} Thread", Thread.CurrentThread.ManagedThreadId);
-                while (!_cancellationTokenSource.IsCancellationRequested)
-                {
+                while (!_cancellationTokenSource.IsCancellationRequested) {
                     var result = await Task.Factory.FromAsync(BeginRecvFrom, EndRecvFrom
                         , _socket, TaskCreationOptions.AttachedToParent);
                     var memory = new ReadOnlyMemory<byte>(_buffer, 0, result.len);
@@ -55,8 +53,7 @@ namespace CommonLib.Network
         public void Stop()
         {
             _cancellationTokenSource.Cancel();
-            if (_kcpLink != null)
-            {
+            if (_kcpLink != null) {
                 _kcpLink.OnRecvKcpPackage -= KcpLink_OnRecvKcpPackage;
                 _kcpLink?.Stop();
             }
@@ -80,8 +77,7 @@ namespace CommonLib.Network
         private async Task ParseCmd(ReadOnlyMemory<byte> buffer)
         {
             byte cmd = buffer.Span[0];
-            switch (cmd)
-            {
+            switch (cmd) {
                 case (byte)NetworkCmd.ConnectTo:
                     _kcpLink = new KcpLink();
                     uint conv = BinaryPrimitives.ReadUInt32LittleEndian(buffer.Span.Slice(1));
@@ -115,8 +111,7 @@ namespace CommonLib.Network
         private RecvResult EndRecvFrom(IAsyncResult result)
         {
             var recvBytes = _socket.EndReceiveFrom(result, ref _remoteEP);
-            var rr = new RecvResult
-            {
+            var rr = new RecvResult {
                 len = recvBytes,
                 remote = _remoteEP,
             };
