@@ -4,6 +4,8 @@ using CommonLib;
 using CommonLib.Network;
 using Server.Serializer;
 using MsgDefine.TestMsg;
+using System.Buffers.Binary;
+using System.Threading;
 
 namespace Server
 {
@@ -11,6 +13,8 @@ namespace Server
     {
         static void Main(string[] args)
         {
+            Debug.DefaultDebugger = new ServerConsoleDebugger();
+            MessageProcessor.DefaultSerializer = new MsgPackBitSerializer();
             /*
             LoginReqMsg msg = new LoginReqMsg {
                 Account = "account",
@@ -23,9 +27,6 @@ namespace Server
             var obj = MessagePackSerializer.Deserialize<LoginReqMsg>(bytes);
             Console.WriteLine(MessagePackSerializer.ConvertToJson(bytes));
             */
-
-            Debug.DefaultDebugger = new ServerConsoleDebugger();
-            MessageProcessor.DefaultSerializer = new MsgPackBitSerializer();
 
             MessageProcessor messageProcessor = new MessageProcessor();
             messageProcessor.Run(TaskScheduler.Default);

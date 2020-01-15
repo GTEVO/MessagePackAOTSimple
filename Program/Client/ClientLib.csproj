@@ -42,6 +42,7 @@
     <Exec Command="copy &quot;$(TargetDir)*.dll&quot; &quot;$(SolutionDir)..\MessagePackAOT\Assets\Plugins\&quot;&#xD;&#xA;copy &quot;$(TargetDir)*.pdb&quot; &quot;$(SolutionDir)..\MessagePackAOT\Assets\Plugins\&quot;" />
   </Target>
   
+  <!--
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
     <DefineConstants>TRACE;DEBUG</DefineConstants>
     <DebugSymbols>true</DebugSymbols>
@@ -55,5 +56,6 @@
     <Optimize>true</Optimize>
     <DebugType>full</DebugType>
   </PropertyGroup>
+  -->
 
 </Project>

@@ -6,6 +6,7 @@ using CommonLib.Network;
 using System.Buffers;
 using System.Net;
 using System.Threading.Tasks;
+using System.Threading;
 
 namespace ClientLib
 {
@@ -21,6 +22,9 @@ namespace ClientLib
             MessageProcessor.DefaultSerializer = new MsgPackBitSerializer();
 
             _messageProcessor = new MessageProcessor();
+            if (SynchronizationContext.Current == null) {
+                SynchronizationContext.SetSynchronizationContext(new SynchronizationContext());
+            }
             _messageProcessor.Run(TaskScheduler.FromCurrentSynchronizationContext());
 
             UdpClient = new UdpClient();

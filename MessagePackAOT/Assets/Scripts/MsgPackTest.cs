@@ -1,7 +1,7 @@
 ﻿using MessagePack;
 using MessagePack.Resolvers;
 using MsgDefine;
-using System.Collections.Generic;
+using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
 using System.Threading;
@@ -31,17 +31,6 @@ public class MsgPackTest : MonoBehaviour
         App.Instacne.Init();
 
         _cancellationTokenSource = new CancellationTokenSource();
-        StaticCompositeResolver.Instance.Register(new IFormatterResolver[]
-        {
-            GeneratedResolver.Instance,
-            MessagePack.Unity.UnityResolver.Instance,
-            StandardResolver.Instance,
-        });
-        // Store it for reuse.
-        var options = MessagePackSerializerOptions.Standard
-                        .WithResolver(StaticCompositeResolver.Instance)
-                        .WithCompression(MessagePackCompression.Lz4Block);
-        MessagePackSerializer.DefaultOptions = options;
     }
 
     private void OnDestroy()
@@ -145,11 +134,27 @@ public class MsgPackTest : MonoBehaviour
         */
 
         //
+        sending = true;
+        StartCoroutine(SendMsg());
+       
+    }
+
+    public void ClickCancelSend() {
+        sending = false;
+    }
+
+    bool sending = true;
+
+    private IEnumerator SendMsg()
+    {
         var loginReq = new LoginReqMsg {
             Account = "A",
             Password = "PWD",
             Extra = "额外"
         };
-        App.Instacne.UdpClient.SendMessage(loginReq);
+        do {
+            App.Instacne.UdpClient.SendMessage(loginReq);
+            yield return null;
+        } while (sending);
     }
 }
