@@ -3,6 +3,26 @@ using System.Runtime.InteropServices;
 
 namespace System.Net.Sockets.Kcp
 {
+    //////////// KCP 帧结构 (BYTE) /////////
+    ///
+    // 0                4    5    6        8
+    // +----------------+----+----+--------+ 
+    // |      conv      |cmd |frg |  wnd   | 
+    //       连接号     命令 分片  接收窗口大小（发送方的发送窗口不能超过接收方给出的数值）
+    //                 12               16
+    // +----------------+----------------+
+    // |         ts     |       sn       | 
+    //          时间序列        序列号
+    //                 20               24
+    // +----------------+----------------+
+    // |       una      |     len        |
+    //下一个可接收的序列号    数据长度    
+    //                                   ?
+    // +----------------+----------------+
+    // |         DATA(optional)          |
+    //              用户数据
+    // +---------------------------------+
+
     /// <summary>
     /// 调整了没存布局，直接拷贝块提升性能。
     /// <para>结构体保存内容只有一个指针，不用担心参数传递过程中的性能</para>
@@ -28,8 +48,7 @@ namespace System.Net.Sockets.Kcp
         {
             var total = LocalOffset + HeadOffset + appendDateSize;
             IntPtr intPtr = Marshal.AllocHGlobal(total);
-            unsafe
-            {
+            unsafe {
                 ///清零    不知道是不是有更快的清0方法？
                 Span<byte> span = new Span<byte>(intPtr.ToPointer(), total);
                 span.Clear();
@@ -44,8 +63,7 @@ namespace System.Net.Sockets.Kcp
         /// <param name="seg"></param>
         public static void FreeHGlobal(KcpSegment seg)
         {
-            unsafe
-            {
+            unsafe {
                 Marshal.FreeHGlobal((IntPtr)seg.ptr);
             }
         }
@@ -56,17 +74,13 @@ namespace System.Net.Sockets.Kcp
         /// </summary>
         public uint resendts
         {
-            get
-            {
-                unsafe
-                {
+            get {
+                unsafe {
                     return *(uint*)(ptr + 0);
                 }
             }
-            set
-            {
-                unsafe
-                {
+            set {
+                unsafe {
                     *(uint*)(ptr + 0) = value;
                 }
             }
@@ -77,17 +91,13 @@ namespace System.Net.Sockets.Kcp
         /// </summary>
         public uint rto
         {
-            get
-            {
-                unsafe
-                {
+            get {
+                unsafe {
                     return *(uint*)(ptr + 4);
                 }
             }
-            set
-            {
-                unsafe
-                {
+            set {
+                unsafe {
                     *(uint*)(ptr + 4) = value;
                 }
             }
@@ -98,17 +108,13 @@ namespace System.Net.Sockets.Kcp
         /// </summary>
         public uint fastack
         {
-            get
-            {
-                unsafe
-                {
+            get {
+                unsafe {
                     return *(uint*)(ptr + 8);
                 }
             }
-            set
-            {
-                unsafe
-                {
+            set {
+                unsafe {
                     *(uint*)(ptr + 8) = value;
                 }
             }
@@ -119,17 +125,13 @@ namespace System.Net.Sockets.Kcp
         /// </summary>
         public uint xmit
         {
-            get
-            {
-                unsafe
-                {
+            get {
+                unsafe {
                     return *(uint*)(ptr + 12);
                 }
             }
-            set
-            {
-                unsafe
-                {
+            set {
+                unsafe {
                     *(uint*)(ptr + 12) = value;
                 }
             }
@@ -145,17 +147,13 @@ namespace System.Net.Sockets.Kcp
         /// https://github.com/skywind3000/kcp/issues/134
         public uint conv
         {
-            get
-            {
-                unsafe
-                {
+            get {
+                unsafe {
                     return *(uint*)(LocalOffset + 0 + ptr);
                 }
             }
-            set
-            {
-                unsafe
-                {
+            set {
+                unsafe {
                     *(uint*)(LocalOffset + 0 + ptr) = value;
                 }
             }
@@ -166,17 +164,13 @@ namespace System.Net.Sockets.Kcp
         /// </summary>
         public byte cmd
         {
-            get
-            {
-                unsafe
-                {
+            get {
+                unsafe {
                     return *(LocalOffset + 4 + ptr);
                 }
             }
-            set
-            {
-                unsafe
-                {
+            set {
+                unsafe {
                     *(LocalOffset + 4 + ptr) = value;
                 }
             }
@@ -187,17 +181,13 @@ namespace System.Net.Sockets.Kcp
         /// </summary>
         public byte frg
         {
-            get
-            {
-                unsafe
-                {
+            get {
+                unsafe {
                     return *(LocalOffset + 5 + ptr);
                 }
             }
-            set
-            {
-                unsafe
-                {
+            set {
+                unsafe {
                     *(LocalOffset + 5 + ptr) = value;
                 }
             }
@@ -208,17 +198,13 @@ namespace System.Net.Sockets.Kcp
         /// </summary>
         public ushort wnd
         {
-            get
-            {
-                unsafe
-                {
+            get {
+                unsafe {
                     return *(ushort*)(LocalOffset + 6 + ptr);
                 }
             }
-            set
-            {
-                unsafe
-                {
+            set {
+                unsafe {
                     *(ushort*)(LocalOffset + 6 + ptr) = value;
                 }
             }
@@ -229,17 +215,13 @@ namespace System.Net.Sockets.Kcp
         /// </summary>
         public uint ts
         {
-            get
-            {
-                unsafe
-                {
+            get {
+                unsafe {
                     return *(uint*)(LocalOffset + 8 + ptr);
                 }
             }
-            set
-            {
-                unsafe
-                {
+            set {
+                unsafe {
                     *(uint*)(LocalOffset + 8 + ptr) = value;
                 }
             }
@@ -251,17 +233,13 @@ namespace System.Net.Sockets.Kcp
         /// </summary>
         public uint sn
         {
-            get
-            {
-                unsafe
-                {
+            get {
+                unsafe {
                     return *(uint*)(LocalOffset + 12 + ptr);
                 }
             }
-            set
-            {
-                unsafe
-                {
+            set {
+                unsafe {
                     *(uint*)(LocalOffset + 12 + ptr) = value;
                 }
             }
@@ -272,17 +250,13 @@ namespace System.Net.Sockets.Kcp
         /// </summary>
         public uint una
         {
-            get
-            {
-                unsafe
-                {
+            get {
+                unsafe {
                     return *(uint*)(LocalOffset + 16 + ptr);
                 }
             }
-            set
-            {
-                unsafe
-                {
+            set {
+                unsafe {
                     *(uint*)(LocalOffset + 16 + ptr) = value;
                 }
             }
@@ -294,17 +268,13 @@ namespace System.Net.Sockets.Kcp
         /// </summary>
         public uint len
         {
-            get
-            {
-                unsafe
-                {
+            get {
+                unsafe {
                     return *(uint*)(LocalOffset + 20 + ptr);
                 }
             }
-            private set
-            {
-                unsafe
-                {
+            private set {
+                unsafe {
                     *(uint*)(LocalOffset + 20 + ptr) = value;
                 }
             }
@@ -316,10 +286,8 @@ namespace System.Net.Sockets.Kcp
         /// https://github.com/skywind3000/kcp/issues/35#issuecomment-263770736
         public Span<byte> data
         {
-            get
-            {
-                unsafe
-                {
+            get {
+                unsafe {
                     return new Span<byte>(LocalOffset + HeadOffset + ptr, (int)len);
                 }
             }
@@ -339,21 +307,17 @@ namespace System.Net.Sockets.Kcp
             ///备用偏移值 现阶段没有使用
             const int offset = 0;
 
-            if (Kcp.IsLittleEndian)
-            {
-                if (BitConverter.IsLittleEndian)
-                {
+            if (Kcp.IsLittleEndian) {
+                if (BitConverter.IsLittleEndian) {
                     ///小端可以一次拷贝
-                    unsafe
-                    {
+                    unsafe {
                         ///要发送的数据从LocalOffset开始。
                         ///本结构体调整了要发送字段和单机使用字段的位置，让报头数据和数据连续，节约一次拷贝。
                         Span<byte> sendDate = new Span<byte>(ptr + LocalOffset, datelen);
                         sendDate.CopyTo(buffer);
                     }
                 }
-                else
-                {
+                else {
                     BinaryPrimitives.WriteUInt32LittleEndian(buffer.Slice(offset), conv);
                     buffer[offset + 4] = cmd;
                     buffer[offset + 5] = frg;
@@ -367,10 +331,8 @@ namespace System.Net.Sockets.Kcp
                     data.CopyTo(buffer.Slice(HeadOffset));
                 }
             }
-            else
-            {
-                if (BitConverter.IsLittleEndian)
-                {
+            else {
+                if (BitConverter.IsLittleEndian) {
                     BinaryPrimitives.WriteUInt32BigEndian(buffer.Slice(offset), conv);
                     buffer[offset + 4] = cmd;
                     buffer[offset + 5] = frg;
@@ -383,11 +345,9 @@ namespace System.Net.Sockets.Kcp
 
                     data.CopyTo(buffer.Slice(HeadOffset));
                 }
-                else
-                {
+                else {
                     ///大端可以一次拷贝
-                    unsafe
-                    {
+                    unsafe {
                         ///要发送的数据从LocalOffset开始。
                         ///本结构体调整了要发送字段和单机使用字段的位置，让报头数据和数据连续，节约一次拷贝。
                         Span<byte> sendDate = new Span<byte>(ptr + LocalOffset, datelen);
