@@ -16,7 +16,7 @@ namespace UnitTestProject1
         [Fact]
         public async Task Test1()
         {
-            for (int i = 0; i < 1000; i++) {
+            for (int i = 0; i < 3000; i++) {
                 ClientAppTest();
             }
             await Task.Delay(1000 * 60 * 5);

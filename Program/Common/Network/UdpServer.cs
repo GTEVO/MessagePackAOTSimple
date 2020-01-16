@@ -32,6 +32,14 @@ namespace CommonLib.Network
         public UdpServer(MessageProcessor messageProcessor)
         {
             _messageProcessor = messageProcessor;
+            Task.Run(async () =>
+            {
+                do
+                {
+                    Debug.LogFormat("clients link count : {0}", _networkLinks.Count);
+                    await Task.Delay(1000);
+                } while (!_cancellationTokenSource.IsCancellationRequested);
+            }, _cancellationTokenSource.Token);
         }
 
         private async Task ParseCmd(NetworkPackage package)

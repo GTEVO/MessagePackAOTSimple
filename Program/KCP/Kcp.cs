@@ -130,6 +130,8 @@ namespace System.Net.Sockets.Kcp
             }
         }
 
+        public int rx_rtt { get; protected set; }
+
         uint mss;
         int state;
         uint snd_una;
@@ -669,7 +671,7 @@ namespace System.Net.Sockets.Kcp
             }
         }
 
-        void Parse_ack(uint sn)
+        void Parse_ack(uint sn, uint ts)
         {
             if (Itimediff(sn, snd_una) < 0 || Itimediff(sn, snd_nxt) >= 0) {
                 return;
@@ -679,6 +681,7 @@ namespace System.Net.Sockets.Kcp
                 for (var p = snd_buf.First; p != null; p = p.Next) {
                     var seg = p.Value;
                     if (sn == seg.sn) {
+                        rx_rtt = Itimediff(current, ts);
                         snd_buf.Remove(p);
                         KcpSegment.FreeHGlobal(seg);
                         break;
@@ -691,15 +694,16 @@ namespace System.Net.Sockets.Kcp
             }
         }
 
-        void Parse_una(uint una)
+        void Parse_una(uint una, uint ts)
         {
             /// 删除给定时间之前的片段。保留之后的片段
             lock (snd_bufLock) {
                 while (snd_buf.First != null) {
                     var seg = snd_buf.First.Value;
                     if (Itimediff(una, seg.sn) > 0) {
-                        KcpSegment.FreeHGlobal(seg);
-                        snd_buf.RemoveFirst();
+                        rx_rtt = Itimediff(current, ts);
+                        KcpSegment.FreeHGlobal(seg);                        
+                        snd_buf.RemoveFirst();                        
                     }
                     else {
                         break;
@@ -871,14 +875,14 @@ namespace System.Net.Sockets.Kcp
                 }
 
                 rmt_wnd = wnd;
-                Parse_una(una);
+                Parse_una(una, ts);
                 Shrink_buf();
 
                 if (IKCP_CMD_ACK == cmd) {
                     if (Itimediff(current, ts) >= 0) {
                         Update_ack(Itimediff(current, ts));
                     }
-                    Parse_ack(sn);
+                    Parse_ack(sn, ts);
                     Shrink_buf();
 
                     if (flag == 0) {

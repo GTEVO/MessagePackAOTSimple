@@ -24,6 +24,8 @@ namespace CommonLib.Network
 
         public uint Conv { get; private set; }
 
+        public int Rtt => _kcp.rx_rtt;
+
         /// <summary>
         /// 必须保证回调顺序与远端发送顺序一致
         /// </summary>
