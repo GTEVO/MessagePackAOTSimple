@@ -912,7 +912,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls:
       - m_Target: {fileID: 1632498346}
-        m_MethodName: OnClickOnHandleMsg
+        m_MethodName: OnClickSendLogin
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
@@ -2204,7 +2204,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: Login
+  m_Text: Send Login
 --- !u!222 &1454093986
 CanvasRenderer:
   m_ObjectHideFlags: 0

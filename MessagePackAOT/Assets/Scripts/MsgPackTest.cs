@@ -178,7 +178,7 @@ public class MsgPackTest : MonoBehaviour
         //  5、异步task中使用 await 一个 task之后，当前调度会变成这个task的调度器
     }
 
-    public void OnClickOnHandleMsg()
+    public void OnClickSendLogin()
     {
         /*
         // msg1 先注册处理器
@@ -216,7 +216,7 @@ public class MsgPackTest : MonoBehaviour
             await Task.Delay(1000);
             do {
                 app.UdpClient.SendMessage(loginReq);
-                await Task.Delay(50);
+                await Task.Delay(16);
             } while (app.Status == App.AppStatus.Running);
         });
     }

@@ -92,7 +92,7 @@ namespace CommonLib.Network
             _socket.IgnoreRemoteHostClosedException();
             _socket.Bind(listenIp);
             // recv
-            var cpuNum = Environment.ProcessorCount;
+            var cpuNum = Environment.ProcessorCount * 1.5;
             for (int i = 0; i < cpuNum; i++) {
                 var task = new Task(async () => {
                     Debug.LogFormat("ParseCmd Task Run At Thread [{0}]", Thread.CurrentThread.ManagedThreadId);

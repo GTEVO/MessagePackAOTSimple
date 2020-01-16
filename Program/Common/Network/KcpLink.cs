@@ -47,7 +47,7 @@ namespace CommonLib.Network
             //  从解析命令的上下文（线程）中切出去，由默认调度器（线程池调度器）启动该任务
             Task.Run(() => {
 
-                Debug.LogFormat("Kcp.cnov:{0} Task Run At Thread[{1}]", conv, Thread.CurrentThread.ManagedThreadId);
+                //  Debug.LogFormat("Kcp.cnov:{0} Task Run At Thread[{1}]", conv, Thread.CurrentThread.ManagedThreadId);
 
                 if (_synchronizationContextTaskScheduler == null) {
                     if (SynchronizationContext.Current == null) {
@@ -70,8 +70,12 @@ namespace CommonLib.Network
                             var delay = _kcp.Check(now);
                             await Task.Delay(delay, _tokenSource.Token);
                         }
-                        catch (Exception e) {
-                            if (e is TaskCanceledException)
+                        catch (TaskCanceledException) {
+                            break;
+                        }
+                        catch (ObjectDisposedException e) {
+                            //  一般情况下，Socket发送数据时，被关闭时会进入此分支；暂时这么处理
+                            if (e.ObjectName == "System.Net.Sockets.Socket")
                                 break;
                             Debug.LogErrorFormat("Kcp.updateTask: \r\n {0}", e);
                         }
@@ -94,9 +98,10 @@ namespace CommonLib.Network
                                 OnRecvKcpPackage?.Invoke(buffer, avalidLength, Conv);
                             };
                         }
+                        catch (TaskCanceledException) {
+                            break;
+                        }
                         catch (Exception e) {
-                            if (e is TaskCanceledException)
-                                break;
                             Debug.LogErrorFormat("Kcp.inputTask: \r\n {0}", e);
                         }
                     }
@@ -113,9 +118,10 @@ namespace CommonLib.Network
                             _kcp.Send(package.MemoryOwner.Memory.Span.Slice(0, package.Size));
                             NetworkBasePackage.Pool.Return(package);
                         }
+                        catch (TaskCanceledException) {
+                            break;
+                        }
                         catch (Exception e) {
-                            if (e is TaskCanceledException)
-                                break;
                             Debug.LogErrorFormat("Kcp.sendTask: \r\n {0}", e);
                         }
                     }
