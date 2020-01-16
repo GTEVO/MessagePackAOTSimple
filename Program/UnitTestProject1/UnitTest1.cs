@@ -34,7 +34,7 @@ namespace UnitTestProject1
             messageProcessor.Run(TaskScheduler.FromCurrentSynchronizationContext());
 
             UdpClient udpClient = new UdpClient();
-            udpClient.Run(IPAddress.Parse("192.168.0.128"), 8063);
+            udpClient.Run(IPAddress.Parse("192.168.31.10"), 8063);
             udpClient.OnRecvKcpPackage += (IMemoryOwner<byte> memoryOwner, int len, uint conv) => {
                 messageProcessor.ProcessBytePackageAsync(memoryOwner, len);
             };

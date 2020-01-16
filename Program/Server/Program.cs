@@ -31,13 +31,19 @@ namespace Server
 
             MessageProcessor messageProcessor = new MessageProcessor();
             messageProcessor.Run(TaskScheduler.Default);
-            MessageProcessor.RegisterHandler<LoginReqMsg>(msg => {
+            MessageProcessor.RegisterHandler<LoginReqMsg>(msg =>
+            {
                 //  Debug.LogFormat("{0}-{1}-{2}", msg.Account, msg.Password, msg.Extra);
             });
 
 
             var udpServer = new UdpServer(messageProcessor);
             udpServer.Start(IPAddress.Any, 8063);
+
+            do
+            {
+                var input = Console.ReadLine();
+            } while (true);
 
             /*
             MessageProcessor.RegisterHandler<LoginReqMsg>((msg, remote) => {
@@ -63,8 +69,6 @@ namespace Server
                 udpServer.Send(loginReqBytes, remote);
             });
             */
-
-            Console.ReadLine();
         }
 
     }

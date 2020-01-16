@@ -11,9 +11,14 @@ namespace CommonLib.Network
 {
     public class UdpClient
     {
+        public const int InitalTimeOut = 200;
+        public const int TimeOut = 1000 * 30;
+        public const float Rate = 1.750f;
+
         byte[] _buffer;
         EndPoint _remoteEP;
         CancellationTokenSource _cancellationTokenSource;
+        CancellationTokenSource _synTaskCancellationTokenSource;
 
         Socket _socket;
 
@@ -26,23 +31,42 @@ namespace CommonLib.Network
         private async Task ParseCmd(ReadOnlyMemory<byte> buffer)
         {
             byte cmd = buffer.Span[0];
-            switch (cmd) {
-                case (byte)NetworkCmd.ConnectTo:
-                    _kcpLink = new KcpLink();
+            if ((cmd & NetworkCmd.SYN) != 0)
+            {
+                if ((cmd & NetworkCmd.ACK) != 0)
+                {
+                    //  Debug.LogFormat("recv SYN +ACK");
+                    //  syn ack
                     uint conv = BinaryPrimitives.ReadUInt32LittleEndian(buffer.Span.Slice(1));
-                    _kcpLink.Run(conv, new KcpUdpCallback(_socket, _remoteEP));
-                    _kcpLink.OnRecvKcpPackage += KcpLink_OnRecvKcpPackage;
-                    break;
-                case (byte)NetworkCmd.DependableTransform:
-                    await _kcpLink.RecvFromRemoteAsync(buffer.Slice(1));
-                    break;
-                case (byte)NetworkCmd.KeepAlive:
-                    //  TODO
-                    break;
-                case (byte)NetworkCmd.DisConnect:
-                    _kcpLink.OnRecvKcpPackage -= KcpLink_OnRecvKcpPackage;
-                    _kcpLink.Stop();
-                    break;
+                    if (_kcpLink == null)
+                    {
+                        _kcpLink = new KcpLink();
+                        _kcpLink.Run(conv, new KcpUdpCallback(_socket, _remoteEP));
+                        _kcpLink.OnRecvKcpPackage += KcpLink_OnRecvKcpPackage;
+                    }
+                    //  发送 ayn ack
+                    var sendBytes = new byte[5];
+                    sendBytes[0] = NetworkCmd.SYN | NetworkCmd.ACK;
+                    BinaryPrimitives.WriteUInt32LittleEndian(new Span<byte>(sendBytes, 1, 4), conv);
+                    //  Debug.LogFormat("send SYN + ACK");
+                    _socket.Send(sendBytes, SocketFlags.None);
+                    _synTaskCancellationTokenSource.Cancel();
+                }
+                else
+                {
+                    // syn 客户端不存在这种情况
+                }
+            }
+            else if ((cmd & NetworkCmd.PUSH) != 0)
+            {
+                //  Debug.LogFormat("recv PUSH");
+                await _kcpLink.RecvFromRemoteAsync(buffer.Slice(1));
+            }
+            else if ((cmd & NetworkCmd.FIN) != 0)
+            {
+                //  Debug.LogFormat("recv FIN");
+                _kcpLink.OnRecvKcpPackage -= KcpLink_OnRecvKcpPackage;
+                _kcpLink.Stop();
             }
         }
 
@@ -51,7 +75,8 @@ namespace CommonLib.Network
             _buffer = new byte[ushort.MaxValue];
 
             _cancellationTokenSource = new CancellationTokenSource();
-            _cancellationTokenSource.Token.Register(() => {
+            _cancellationTokenSource.Token.Register(() =>
+            {
                 _socket.Close();
             });
 
@@ -61,9 +86,11 @@ namespace CommonLib.Network
             _socket.Connect(_remoteEP);
 
             //  RecvFromAsync Task
-            var recvTask = new Task(async () => {
+            var recvTask = new Task(async () =>
+            {
                 Debug.LogFormat("Recv Bytes From Network Task Run At Thread[{0}]", Thread.CurrentThread.ManagedThreadId);
-                while (!_cancellationTokenSource.IsCancellationRequested) {
+                while (!_cancellationTokenSource.IsCancellationRequested)
+                {
                     var result = await Task.Factory.FromAsync(BeginRecvFrom, EndRecvFrom, _socket, TaskCreationOptions.None);
                     var memory = new ReadOnlyMemory<byte>(_buffer, 0, result.len);
                     await ParseCmd(memory);
@@ -76,11 +103,13 @@ namespace CommonLib.Network
 
         public void Stop()
         {
-            if (_kcpLink != null) {
+            if (_kcpLink != null)
+            {
                 _kcpLink.OnRecvKcpPackage -= KcpLink_OnRecvKcpPackage;
                 _kcpLink?.Stop(_Stop);
             }
-            else {
+            else
+            {
                 _Stop();
             }
         }
@@ -101,10 +130,31 @@ namespace CommonLib.Network
         public void ConnectTo()
         {
             //  
-            var cmd = new byte[1400];
-            cmd[0] = (byte)NetworkCmd.ConnectTo;
-            // 请求参数，例如IdToken放在 cmd[0]后面
-            _socket.Send(cmd, SocketFlags.None);
+            var task = new Task(async () =>
+            {
+                var cmd = new byte[1400];
+                cmd[0] = (byte)NetworkCmd.SYN;
+                // 请求参数，例如IdToken放在 cmd[0]后面
+                int delay = InitalTimeOut;
+                _synTaskCancellationTokenSource = new CancellationTokenSource();
+                do
+                {
+                    //  发送conv
+                    //  Debug.LogFormat("send SYN");
+                    _socket.Send(cmd, SocketFlags.None);
+                    try
+                    {
+                        await Task.Delay(delay, _synTaskCancellationTokenSource.Token);
+                    }
+                    catch (TaskCanceledException)
+                    {
+                        break;
+                    }
+                    delay = (int)(delay * Rate);
+                } while (!_synTaskCancellationTokenSource.IsCancellationRequested);
+
+            });
+            task.RunSynchronously();
         }
 
         private void KcpLink_OnRecvKcpPackage(IMemoryOwner<byte> arg1, int arg2, uint arg3)
@@ -121,7 +171,8 @@ namespace CommonLib.Network
         private RecvResult EndRecvFrom(IAsyncResult result)
         {
             var recvBytes = _socket.EndReceiveFrom(result, ref _remoteEP);
-            var rr = new RecvResult {
+            var rr = new RecvResult
+            {
                 len = recvBytes,
                 remote = _remoteEP,
             };

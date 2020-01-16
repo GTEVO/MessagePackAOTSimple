@@ -23,18 +23,21 @@ namespace CommonLib.Network
 
         public void Output(IMemoryOwner<byte> buffer, int avalidLength)
         {
-            if (_sendBuffer == null) {
+            if (_sendBuffer == null)
+            {
                 _sendBuffer = new byte[ushort.MaxValue];
             }
-            if (avalidLength >= ushort.MaxValue) {
+            if (avalidLength >= ushort.MaxValue)
+            {
                 //  正常情况下，KCP不会输出这么大的包
                 throw new ArgumentOutOfRangeException("avalidLength", avalidLength, "Too Long");
             }
             var dst = new Span<byte>(_sendBuffer, 1, avalidLength);
             buffer.Memory.Span.Slice(0, avalidLength).CopyTo(dst);
-            _sendBuffer[0] = (byte)NetworkCmd.DependableTransform;
+            _sendBuffer[0] = (byte)NetworkCmd.PUSH;
             //  Debug.LogFormat("Thread[{0}] send kcp segment by udp, size = {2}", Thread.CurrentThread.ManagedThreadId, avalidLength);
             avalidLength += 1;
+            //  Debug.LogFormat("send PUSH");
             _Socket.SendTo(_sendBuffer, avalidLength, SocketFlags.None, _IpendPoint);
             buffer.Dispose();
         }

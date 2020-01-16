@@ -13,10 +13,6 @@ namespace CommonLib.Network
         public const byte RESET = 1 << 2;
         public const byte PUSH = 1 << 3;
         public const byte ACK = 1 << 4;
-        public const byte ConnectTo = 1 << 2;
-        public const byte DependableTransform = 1 << 3;
-        public const byte KeepAlive = 1 << 4;
-        public const byte DisConnect = 1 << 5;
     }
 
     public struct RecvResult
