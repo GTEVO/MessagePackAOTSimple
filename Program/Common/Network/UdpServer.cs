@@ -6,7 +6,6 @@ using System.Threading.Tasks;
 using System.Threading.Tasks.Dataflow;
 using System.Buffers;
 using System.Collections.Concurrent;
-using System.Net.Sockets.Kcp;
 using System.Buffers.Binary;
 
 namespace CommonLib.Network
@@ -21,56 +20,11 @@ namespace CommonLib.Network
         readonly BufferBlock<NetworkPackage> _recvQueue = new BufferBlock<NetworkPackage>();
         readonly ConcurrentDictionary<EndPoint, KcpLink> _networkLinks = new ConcurrentDictionary<EndPoint, KcpLink>();
 
-        public void Start()
-        {
-            // listen
-            var listenIp = new IPEndPoint(IPAddress.Any, 8000);
-            _socket = new Socket(listenIp.AddressFamily, SocketType.Dgram, ProtocolType.Udp);
-            _socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
-            _socket.Bind(listenIp);
-            var recvTask = new Task(async () => {
-                Debug.LogFormat("Recv Bytes From Network Task Run At {0} Thread", Thread.CurrentThread.ManagedThreadId);
-                while (!_cancellationTokenSource.IsCancellationRequested) {
-                    var result = await Task.Factory.FromAsync(BeginRecvFrom, EndRecvFrom, _socket, TaskCreationOptions.AttachedToParent);
-                    //  Pool Get
-                    var msgpack = NetworkPackage.Pool.Get();
-                    msgpack.Remote = result.remote;
-                    msgpack.Size = result.len;
-                    msgpack.MemoryOwner = MemoryPool<byte>.Shared.Rent(result.len);
-                    ((Span<byte>)_buffer).Slice(0, result.len).CopyTo(msgpack.MemoryOwner.Memory.Span);
-                    await _recvQueue.SendAsync(msgpack);
-                }
-            }, _cancellationTokenSource.Token, TaskCreationOptions.LongRunning);
-            recvTask.Start();
-            // recv
-            var cpuNum = Environment.ProcessorCount;
-            for (int i = 0; i < cpuNum; i++) {
-                var task = new Task(async () => {
-                    Debug.LogFormat("Process NetPackage Task Run At {0} Thread", Thread.CurrentThread.ManagedThreadId);
-                    do {
-                        var package = await _recvQueue.ReceiveAsync();
-                        await ParseCmd(package);
-                    } while (!_cancellationTokenSource.IsCancellationRequested);
-                }, _cancellationTokenSource.Token, TaskCreationOptions.LongRunning);
-                task.Start();
-            }
-        }
+        readonly MessageProcessor _messageProcessor;
 
-        private void Link_OnRecvKcpPackage(IMemoryOwner<byte> memoryOwner, int len, uint conv)
+        public UdpServer(MessageProcessor messageProcessor)
         {
-            MessageProcessor.ProcessBytePackageAsync(memoryOwner, len);
-        }
-
-        public void Stop()
-        {
-            _cancellationTokenSource.Cancel();
-        }
-
-        public void SendBytes(byte[] bytes)
-        {
-            foreach (var item in _networkLinks) {
-                item.Value.SendToRemoteAsync(bytes);
-            }
+            _messageProcessor = messageProcessor;
         }
 
         private async Task ParseCmd(NetworkPackage package)
@@ -124,6 +78,62 @@ namespace CommonLib.Network
             NetworkBasePackage.Pool.Return(package);
 
         }
+
+
+        public void Start(IPAddress ip, int port)
+        {
+            //  listen
+            var listenIp = new IPEndPoint(ip, port);
+            _socket = new Socket(listenIp.AddressFamily, SocketType.Dgram, ProtocolType.Udp);
+            _socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
+            _socket.Bind(listenIp);
+            // recv
+            var cpuNum = Environment.ProcessorCount;
+            for (int i = 0; i < cpuNum; i++) {
+                var task = new Task(async () => {
+                    Debug.LogFormat("ParseCmd Task Run At Thread [{0}]", Thread.CurrentThread.ManagedThreadId);
+                    do {
+                        var package = await _recvQueue.ReceiveAsync();
+                        await ParseCmd(package);
+                    } while (!_cancellationTokenSource.IsCancellationRequested);
+                }, _cancellationTokenSource.Token, TaskCreationOptions.LongRunning);
+                task.Start();
+            }
+            //  acept
+            var recvTask = new Task(async () => {
+                Debug.LogFormat("Recv Bytes From Network Task Run At Thread[{0}]", Thread.CurrentThread.ManagedThreadId);
+                while (!_cancellationTokenSource.IsCancellationRequested) {
+                    var result = await Task.Factory.FromAsync(BeginRecvFrom, EndRecvFrom, _socket, TaskCreationOptions.None);
+                    //  Pool Get
+                    var msgpack = NetworkPackage.Pool.Get();
+                    msgpack.Remote = result.remote;
+                    msgpack.Size = result.len;
+                    msgpack.MemoryOwner = MemoryPool<byte>.Shared.Rent(result.len);
+                    ((Span<byte>)_buffer).Slice(0, result.len).CopyTo(msgpack.MemoryOwner.Memory.Span);
+                    await _recvQueue.SendAsync(msgpack);
+                }
+            }, _cancellationTokenSource.Token, TaskCreationOptions.LongRunning);
+            recvTask.Start();
+
+        }
+
+        public void Stop()
+        {
+            _cancellationTokenSource.Cancel();
+        }
+
+        public void SendBytes(byte[] bytes)
+        {
+            foreach (var item in _networkLinks) {
+                item.Value.SendToRemoteAsync(bytes);
+            }
+        }
+
+        private void Link_OnRecvKcpPackage(IMemoryOwner<byte> memoryOwner, int len, uint conv)
+        {
+            _messageProcessor.ProcessBytePackageAsync(memoryOwner, len);
+        }
+
 
         #region Implement Socket Cross Platform RecvFromAsync
         private IAsyncResult BeginRecvFrom(AsyncCallback callback, object state)

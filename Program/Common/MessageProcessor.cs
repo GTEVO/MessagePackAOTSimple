@@ -15,7 +15,7 @@ namespace CommonLib
     {
         public static ISerializer DefaultSerializer { get; set; }
 
-        public readonly static BufferBlock<NetworkBasePackage> _waitForProcessPackage = new BufferBlock<NetworkBasePackage>();
+        public readonly BufferBlock<NetworkBasePackage> _waitForProcessPackage = new BufferBlock<NetworkBasePackage>();
 
         private readonly CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
 
@@ -112,7 +112,7 @@ namespace CommonLib
             HandlerCache<T>.UnRegisterHandler(action);
         }
 
-        public static Task ProcessBytePackageAsync(IMemoryOwner<byte> memoryOwner, int size)
+        public Task ProcessBytePackageAsync(IMemoryOwner<byte> memoryOwner, int size)
         {
             //  Pool Get
             var package = NetworkBasePackage.Pool.Get();
@@ -121,7 +121,7 @@ namespace CommonLib
             return _waitForProcessPackage.SendAsync(package);
         }
 
-        public static Task ProcessBytePackageAsync(ReadOnlyMemory<byte> memory)
+        public Task ProcessBytePackageAsync(ReadOnlyMemory<byte> memory)
         {
             //  Pool Get
             var package = NetworkBasePackage.Pool.Get();

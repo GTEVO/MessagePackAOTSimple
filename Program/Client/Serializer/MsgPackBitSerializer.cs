@@ -9,7 +9,7 @@ namespace ClientLib.Serializer
 {
     public class MsgPackBitSerializer : ISerializer
     {
-        public MsgPackBitSerializer()
+        static MsgPackBitSerializer()
         {
             StaticCompositeResolver.Instance.Register(new IFormatterResolver[]
             {

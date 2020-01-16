@@ -6,6 +6,7 @@ using Server.Serializer;
 using MsgDefine.TestMsg;
 using System.Buffers.Binary;
 using System.Threading;
+using System.Net;
 
 namespace Server
 {
@@ -31,12 +32,12 @@ namespace Server
             MessageProcessor messageProcessor = new MessageProcessor();
             messageProcessor.Run(TaskScheduler.Default);
             MessageProcessor.RegisterHandler<LoginReqMsg>(msg => {
-                Debug.LogFormat("{0}-{1}-{2}", msg.Account, msg.Password, msg.Extra);
+                //  Debug.LogFormat("{0}-{1}-{2}", msg.Account, msg.Password, msg.Extra);
             });
 
 
-            var udpServer = new UdpServer();
-            udpServer.Start();
+            var udpServer = new UdpServer(messageProcessor);
+            udpServer.Start(IPAddress.Any, 8063);
 
             /*
             MessageProcessor.RegisterHandler<LoginReqMsg>((msg, remote) => {

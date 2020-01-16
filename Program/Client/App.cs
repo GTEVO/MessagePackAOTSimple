@@ -12,9 +12,17 @@ namespace ClientLib
 {
     public class App : Singleton<App>
     {
-        public UdpClient UdpClient { get; private set; }
-        MessageProcessor _messageProcessor;
+        public enum AppStatus
+        {
+            WaitForInit,
+            Running,
+            Stoped,
+        }
 
+        public UdpClient UdpClient { get; private set; }
+        private MessageProcessor _messageProcessor;
+
+        public AppStatus Status { get; private set; } = AppStatus.WaitForInit;
 
         public void Init()
         {
@@ -28,19 +36,22 @@ namespace ClientLib
             _messageProcessor.Run(TaskScheduler.FromCurrentSynchronizationContext());
 
             UdpClient = new UdpClient();
-            UdpClient.Run();
+            UdpClient.Run(IPAddress.Loopback, 8063);
             UdpClient.OnRecvKcpPackage += NetworkLink_OnRecvKcpPackage;
+
+            Status = AppStatus.Running;
         }
 
         private void NetworkLink_OnRecvKcpPackage(IMemoryOwner<byte> memoryOwner, int len, uint conv)
         {
-            MessageProcessor.ProcessBytePackageAsync(memoryOwner, len);
+            _messageProcessor.ProcessBytePackageAsync(memoryOwner, len);
         }
 
         public void UnInit()
         {
             UdpClient.Stop();
             _messageProcessor.Stop();
+            Status = AppStatus.Stoped;
         }
     }
 }

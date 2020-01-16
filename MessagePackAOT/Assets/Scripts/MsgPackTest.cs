@@ -15,6 +15,7 @@ using MsgDefine.TestMsg;
 using MsgDefine.Resolvers;
 using ClientLib;
 using System.Net.Http;
+using System.Collections.Generic;
 
 public class MsgPackTest : MonoBehaviour
 {
@@ -26,17 +27,36 @@ public class MsgPackTest : MonoBehaviour
 
     private CancellationTokenSource _cancellationTokenSource;
 
+    private List<App> apps = new List<App>();
 
     private void Awake()
     {
         App.Instacne.Init();
-
         _cancellationTokenSource = new CancellationTokenSource();
+    }
+
+    public void OnClickCreateApps()
+    {
+        for (int i = 0; i < 20; i++) {
+            var app = new App();
+            apps.Add(app);
+            app.Init();
+            SendMsg(app);
+        }
+    }
+
+    public void OnClickCleanApps()
+    {
+        foreach (var item in apps) {
+            item.UnInit();
+        }
+        apps.Clear();
     }
 
     private void OnDestroy()
     {
-        App.Instacne.UnInit();
+        ClickCancelSend();
+        OnClickCleanApps();
     }
 
     private void ShowAsText(string txt)
@@ -82,8 +102,7 @@ public class MsgPackTest : MonoBehaviour
 
     public void OnClickDeserialize()
     {
-        var loginMsg = new LoginReqMsg
-        {
+        var loginMsg = new LoginReqMsg {
             Account = "account",
             Password = "pwd",
             Extra = "哈哈哈",
@@ -91,8 +110,7 @@ public class MsgPackTest : MonoBehaviour
         var reqMsgBytes = MessagePackSerializer.Serialize(loginMsg);
         var reqMsgreqMsgObj = MessagePackSerializer.Deserialize<LoginReqMsg>(reqMsgBytes);
 
-        var registerMsg = new RegisterReqMsg
-        {
+        var registerMsg = new RegisterReqMsg {
             Phone = "1350000",
             Authcode = "验证码",
         };
@@ -108,26 +126,26 @@ public class MsgPackTest : MonoBehaviour
 
 
         var mainThreadTaskScheduler = TaskScheduler.FromCurrentSynchronizationContext();
-        Task.Factory.StartNew(async () =>
-         {
-             try
-             {
-                 Debug.LogFormat("before await {0}", Thread.CurrentThread.ManagedThreadId);
-                 await Wait();
-                 Debug.LogFormat("after await {0}", Thread.CurrentThread.ManagedThreadId);
-                 var registerMsgBytes = MessagePackSerializer.Serialize(registerMsg);
-                 var deserializeMsg = MessagePackSerializer.Deserialize<RegisterReqMsg>(registerMsgBytes);
-                 text.text = string.Format("Account : {0}-{1}-{2}", reqMsgreqMsgObj.Account
-                     , reqMsgreqMsgObj.Password, reqMsgreqMsgObj.Extra);
-                 text2.text = string.Format("Account : {0}-{1}", deserializeMsg.Phone, deserializeMsg.Authcode);
-             }
-             catch (System.Exception e)
-             {
-                 UnityEngine.Debug.LogError(e);
-             }
-             return true;
-         }, _cancellationTokenSource.Token, TaskCreationOptions.None
-           , mainThreadTaskScheduler);
+        Task.Run(() => {
+            Debug.LogFormat("Main Task Thread [{0}]", Thread.CurrentThread.ManagedThreadId);
+            var msgpackTask = new Task(() => {
+                Debug.LogFormat("MsgpackTask Task Thread [{0}]", Thread.CurrentThread.ManagedThreadId);
+                var registerMsgBytes = MessagePackSerializer.Serialize(registerMsg);
+                var deserializeMsg = MessagePackSerializer.Deserialize<RegisterReqMsg>(registerMsgBytes);
+                text.text = string.Format("Account : {0}-{1}-{2}", reqMsgreqMsgObj.Account
+                    , reqMsgreqMsgObj.Password, reqMsgreqMsgObj.Extra);
+                text2.text = string.Format("Account : {0}-{1}", deserializeMsg.Phone, deserializeMsg.Authcode);
+            });
+            msgpackTask.Start(mainThreadTaskScheduler);
+
+            var webTask = new Task(async () => {
+                Debug.LogFormat("before await Thread [{0}]", Thread.CurrentThread.ManagedThreadId);
+                await Wait();
+                Debug.LogFormat("after await Thread [{0}]", Thread.CurrentThread.ManagedThreadId);
+            });
+            webTask.Start(mainThreadTaskScheduler);
+
+        }, _cancellationTokenSource.Token);
     }
 
     private async Task RequstHttp()
@@ -179,30 +197,27 @@ public class MsgPackTest : MonoBehaviour
         */
 
         //
-        sending = true;
-        StartCoroutine(SendMsg());
-
+        SendMsg(App.Instacne);
     }
 
     public void ClickCancelSend()
     {
-        sending = false;
+        App.Instacne.UnInit();
     }
 
-    bool sending = true;
-
-    private IEnumerator SendMsg()
+    private void SendMsg(App app)
     {
-        var loginReq = new LoginReqMsg
-        {
-            Account = "A",
-            Password = "PWD",
-            Extra = "额外"
-        };
-        do
-        {
-            App.Instacne.UdpClient.SendMessage(loginReq);
-            yield return null;
-        } while (sending);
+        Task.Run(async () => {
+            var loginReq = new LoginReqMsg {
+                Account = "A",
+                Password = "PWD",
+                Extra = "额外"
+            };
+            await Task.Delay(1000);
+            do {
+                app.UdpClient.SendMessage(loginReq);
+                await Task.Delay(50);
+            } while (app.Status == App.AppStatus.Running);
+        });
     }
 }
