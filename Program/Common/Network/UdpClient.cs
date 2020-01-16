@@ -21,6 +21,8 @@ namespace CommonLib.Network
 
         private KcpLink _kcpLink;
 
+        public uint ConectionId => _kcpLink == null ? 0 : _kcpLink.Conv;
+
         private async Task ParseCmd(ReadOnlyMemory<byte> buffer)
         {
             byte cmd = buffer.Span[0];

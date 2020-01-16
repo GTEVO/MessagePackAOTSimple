@@ -8,7 +8,7 @@ namespace Server.Serializer
 {
     public class MsgPackBitSerializer : ISerializer
     {
-        public MsgPackBitSerializer()
+        static MsgPackBitSerializer()
         {
             var options = MessagePackSerializerOptions.Standard
                             .WithCompression(MessagePackCompression.Lz4Block);
