@@ -43,10 +43,6 @@ namespace CommonLib.Network
             _kcp.SetMtu(MTU);
 
             _tokenSource = new CancellationTokenSource();
-            _tokenSource.Token.Register(() => {
-                _kcp.Dispose();
-                _kcp = null;
-            });
 
             //  从解析命令的上下文（线程）中切出去，由默认调度器（线程池调度器）启动该任务
             Task.Run(() => {
@@ -66,42 +62,63 @@ namespace CommonLib.Network
                 //  update
                 Task updateTask = new Task(async () => {
                     //  Debug.LogFormat("Kcp.cnov:{0} Update Task Run At Thread[{1}]", conv, Thread.CurrentThread.ManagedThreadId);
-                    do {
-                        var now = DateTime.UtcNow;
-                        await _kcp.UpdateAsync(now);
-                        now = DateTime.UtcNow;
-                        var delay = _kcp.Check(now);
-                        await Task.Delay(delay, _tokenSource.Token);
-                    } while (!_tokenSource.IsCancellationRequested);
+                    while (!_tokenSource.IsCancellationRequested) {
+                        try {
+                            var now = DateTime.UtcNow;
+                            await _kcp.UpdateAsync(now);
+                            now = DateTime.UtcNow;
+                            var delay = _kcp.Check(now);
+                            await Task.Delay(delay, _tokenSource.Token);
+                        }
+                        catch (Exception e) {
+                            if (e is TaskCanceledException)
+                                break;
+                            Debug.LogErrorFormat("Kcp.updateTask: \r\n {0}", e);
+                        }
+                    }
                 });
                 updateTask.Start(_synchronizationContextTaskScheduler);
 
                 //  input from lower level
                 Task inputTask = new Task(async () => {
                     //  Debug.LogFormat("Kcp.cnov:{0} Input Task Run At Thread[{1}]", conv, Thread.CurrentThread.ManagedThreadId);
-                    do {
-                        var package = await _recvFromRemote.ReceiveAsync(_tokenSource.Token);
-                        var result = _kcp.Input(package.MemoryOwner.Memory.Span.Slice(0, package.Size));
-                        while (result == 0) {
-                            var (buffer, avalidLength) = _kcp.TryRecv();
-                            if (buffer == null)
+                    while (!_tokenSource.IsCancellationRequested) {
+                        try {
+                            var package = await _recvFromRemote.ReceiveAsync(_tokenSource.Token);
+                            var result = _kcp.Input(package.MemoryOwner.Memory.Span.Slice(0, package.Size));
+                            while (result == 0) {
+                                var (buffer, avalidLength) = _kcp.TryRecv();
+                                if (buffer == null)
+                                    break;
+                                //  在此解压、解密
+                                OnRecvKcpPackage?.Invoke(buffer, avalidLength, Conv);
+                            };
+                        }
+                        catch (Exception e) {
+                            if (e is TaskCanceledException)
                                 break;
-                            //  在此解压、解密
-                            OnRecvKcpPackage?.Invoke(buffer, avalidLength, Conv);
-                        };
-                    } while (!_tokenSource.IsCancellationRequested);
+                            Debug.LogErrorFormat("Kcp.inputTask: \r\n {0}", e);
+                        }
+                    }
                 }, _tokenSource.Token);
                 inputTask.Start(_synchronizationContextTaskScheduler);
 
                 //  send by user
                 Task sendTask = new Task(async () => {
                     //  Debug.LogFormat("Kcp.cnov:{0} Send Task Run At Thread[{1}]", conv, Thread.CurrentThread.ManagedThreadId);
-                    do {
-                        var package = await _recvFromLocal.ReceiveAsync(_tokenSource.Token);
-                        //  在此压缩、加密                       
-                        _kcp.Send(package.MemoryOwner.Memory.Span.Slice(0, package.Size));
-                        NetworkBasePackage.Pool.Return(package);
-                    } while (!_tokenSource.IsCancellationRequested);
+                    while (!_tokenSource.IsCancellationRequested) {
+                        try {
+                            var package = await _recvFromLocal.ReceiveAsync(_tokenSource.Token);
+                            //  在此压缩、加密                       
+                            _kcp.Send(package.MemoryOwner.Memory.Span.Slice(0, package.Size));
+                            NetworkBasePackage.Pool.Return(package);
+                        }
+                        catch (Exception e) {
+                            if (e is TaskCanceledException)
+                                break;
+                            Debug.LogErrorFormat("Kcp.sendTask: \r\n {0}", e);
+                        }
+                    }
                 }, _tokenSource.Token);
                 sendTask.Start(_synchronizationContextTaskScheduler);
 
@@ -110,11 +127,12 @@ namespace CommonLib.Network
                 Debug.LogErrorFormat("KcpLink.cnov:{0}\r\n[{1}]", conv, task.Exception);
                 Stop();
             }, TaskContinuationOptions.OnlyOnFaulted);
-
         }
 
-        public void Stop()
+        public void Stop(Action onCancel = null)
         {
+            if (onCancel != null)
+                _tokenSource.Token.Register(onCancel);
             _tokenSource.Cancel();
         }
 

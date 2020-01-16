@@ -55,15 +55,14 @@ namespace CommonLib.Network
 
             _remoteEP = new IPEndPoint(ip, port);
             _socket = new Socket(_remoteEP.AddressFamily, SocketType.Dgram, ProtocolType.Udp);
-            _socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
+            _socket.IgnoreRemoteHostClosedException();
             _socket.Connect(_remoteEP);
 
             //  RecvFromAsync Task
             var recvTask = new Task(async () => {
                 Debug.LogFormat("Recv Bytes From Network Task Run At Thread[{0}]", Thread.CurrentThread.ManagedThreadId);
                 while (!_cancellationTokenSource.IsCancellationRequested) {
-                    var result = await Task.Factory.FromAsync(BeginRecvFrom, EndRecvFrom
-                        , _socket, TaskCreationOptions.None);
+                    var result = await Task.Factory.FromAsync(BeginRecvFrom, EndRecvFrom, _socket, TaskCreationOptions.None);
                     var memory = new ReadOnlyMemory<byte>(_buffer, 0, result.len);
                     await ParseCmd(memory);
                 }
@@ -75,11 +74,18 @@ namespace CommonLib.Network
 
         public void Stop()
         {
-            _cancellationTokenSource.Cancel();
             if (_kcpLink != null) {
                 _kcpLink.OnRecvKcpPackage -= KcpLink_OnRecvKcpPackage;
-                _kcpLink?.Stop();
+                _kcpLink?.Stop(_Stop);
             }
+            else {
+                _Stop();
+            }
+        }
+
+        private void _Stop()
+        {
+            _cancellationTokenSource.Cancel();
         }
 
         public void SendMessage<T>(T msg)

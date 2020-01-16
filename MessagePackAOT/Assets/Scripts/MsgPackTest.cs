@@ -37,7 +37,7 @@ public class MsgPackTest : MonoBehaviour
 
     public void OnClickCreateApps()
     {
-        for (int i = 0; i < 20; i++) {
+        for (int i = 0; i < 100; i++) {
             var app = new App();
             apps.Add(app);
             app.Init();

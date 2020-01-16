@@ -289,6 +289,8 @@ namespace System.Net.Sockets.Kcp
 
 
                     disposedValue = true;
+
+                    wait_hander?.TrySetCanceled();
                 }
             }
             finally {
@@ -315,8 +317,6 @@ namespace System.Net.Sockets.Kcp
             Dispose(true);
             // 如果在以上内容中替代了终结器，则取消注释以下行。
             GC.SuppressFinalize(this);
-
-            wait_hander.TrySetCanceled();
         }
         #endregion
     }
@@ -626,7 +626,7 @@ namespace System.Net.Sockets.Kcp
 
             #endregion
             lock (wait_handerLock) {
-                wait_hander.TrySetResult(true);
+                wait_hander?.TrySetResult(true);
             }
 
             return 0;
@@ -956,7 +956,7 @@ namespace System.Net.Sockets.Kcp
                 }
             }
             lock (wait_handerLock) {
-                wait_hander.TrySetResult(false);
+                wait_hander?.TrySetResult(false);
             }
             return 0;
         }

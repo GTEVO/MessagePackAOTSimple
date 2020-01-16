@@ -7,6 +7,7 @@ using System.Threading.Tasks.Dataflow;
 using System.Buffers;
 using System.Collections.Concurrent;
 using System.Buffers.Binary;
+using System.Runtime.InteropServices;
 
 namespace CommonLib.Network
 {
@@ -34,7 +35,10 @@ namespace CommonLib.Network
             switch (cmd) {
                 case (byte)NetworkCmd.ConnectTo: {
                         //  TODO 验证IdToken，返回 对应的 conv
-                        uint conv = 12306;
+                        uint conv = 1;
+                        if (package.Remote is IPEndPoint ip) {
+                            conv = (uint)ip.Port;
+                        }
                         if (_networkLinks.TryRemove(package.Remote, out var link)) {
                             //  移除旧连接
                             link.OnRecvKcpPackage -= Link_OnRecvKcpPackage;
@@ -85,7 +89,7 @@ namespace CommonLib.Network
             //  listen
             var listenIp = new IPEndPoint(ip, port);
             _socket = new Socket(listenIp.AddressFamily, SocketType.Dgram, ProtocolType.Udp);
-            _socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
+            _socket.IgnoreRemoteHostClosedException();
             _socket.Bind(listenIp);
             // recv
             var cpuNum = Environment.ProcessorCount;

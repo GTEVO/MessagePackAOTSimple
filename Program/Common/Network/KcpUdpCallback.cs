@@ -35,7 +35,12 @@ namespace CommonLib.Network
             _sendBuffer[0] = (byte)NetworkCmd.DependableTransform;
             //  Debug.LogFormat("Thread[{0}] send kcp segment by udp, size = {2}", Thread.CurrentThread.ManagedThreadId, avalidLength);
             avalidLength += 1;
-            _Socket.SendTo(_sendBuffer, avalidLength, SocketFlags.None, _IpendPoint);
+            try {
+                _Socket.SendTo(_sendBuffer, avalidLength, SocketFlags.None, _IpendPoint);
+            }
+            catch (Exception e) {
+                //  正在发送数据的时候Socket被关闭，会抛出异常，这里一般是主动关闭Socket引发的，不处理
+            }
             buffer.Dispose();
         }
     }
