@@ -13,6 +13,10 @@ namespace CommonLib.Network
 {
     public class UdpServer
     {
+        public const int InitalTimeOut = 200;
+        public const int TimeOut = 1000 * 30;
+        public const float Rate = 1.750f;
+
         Socket _socket;
         EndPoint _remoteEP = new IPEndPoint(IPAddress.Any, IPEndPoint.MinPort);
 
@@ -23,6 +27,8 @@ namespace CommonLib.Network
 
         readonly MessageProcessor _messageProcessor;
 
+        readonly ConcurrentDictionary<EndPoint, CancellationTokenSource> _synAckTaskTokens = new ConcurrentDictionary<EndPoint, CancellationTokenSource>();
+
         public UdpServer(MessageProcessor messageProcessor)
         {
             _messageProcessor = messageProcessor;
@@ -32,15 +38,42 @@ namespace CommonLib.Network
         {
             ReadOnlyMemory<byte> buffer = package.MemoryOwner.Memory.Slice(0, package.Size);
             byte cmd = buffer.Span[0];
-            switch (cmd) {
-                case (byte)NetworkCmd.ConnectTo: {
-                        //  TODO 验证IdToken，返回 对应的 conv
-                        uint conv = 1;
-                        if (package.Remote is IPEndPoint ip) {
-                            conv = (uint)ip.Port;
-                        }
+
+            if ((cmd & NetworkCmd.SYN) != 0) {
+                if ((cmd & NetworkCmd.ACK) == 0) {
+                    //  连接请求
+                    //  TODO 验证IdToken，返回 对应的 conv
+                    uint conv = 1;
+                    if (package.Remote is IPEndPoint ip) {
+                        //  随便写的代替号
+                        conv = (uint)ip.Port;
+                    }
+
+                    var remote = package.Remote;
+                    var cancellationTokenSource = new CancellationTokenSource();
+                    if (_synAckTaskTokens.TryAdd(remote, cancellationTokenSource)) {
+                        var synAck = new Task(async () => {
+                            var sendBytes = new byte[5];
+                            sendBytes[0] = NetworkCmd.SYN | NetworkCmd.ACK;
+                            BinaryPrimitives.WriteUInt32LittleEndian(new Span<byte>(sendBytes, 1, 4), conv);
+                            int delay = InitalTimeOut;
+                            do {
+                                //  发送conv
+                                _socket.SendTo(sendBytes, SocketFlags.None, remote);
+                                await Task.Delay(delay, cancellationTokenSource.Token);
+                                delay = (int)(delay * Rate);
+                            } while (!cancellationTokenSource.IsCancellationRequested);
+                            _synAckTaskTokens.TryRemove(remote, out var token);
+                        });
+                        synAck.Start();
+                    }
+                }
+                else {
+                    var remote = package.Remote;
+                    //  连接确认
+                    if (_synAckTaskTokens.TryRemove(package.Remote, out var token)) {
+                        //  移除旧连接
                         if (_networkLinks.TryRemove(package.Remote, out var link)) {
-                            //  移除旧连接
                             link.OnRecvKcpPackage -= Link_OnRecvKcpPackage;
                             link.Stop();
                         }
@@ -48,39 +81,34 @@ namespace CommonLib.Network
                         link = new KcpLink();
                         link.OnRecvKcpPackage += Link_OnRecvKcpPackage;
                         var s = new KcpUdpCallback(_socket, package.Remote);
+                        var conv = BinaryPrimitives.ReadUInt32LittleEndian(buffer.Span.Slice(1));
                         link.Run(conv, s);
                         _networkLinks.TryAdd(package.Remote, link);
-
-                        var sendBytes = new byte[5];
-                        sendBytes[0] = (byte)NetworkCmd.ConnectTo;
-                        BinaryPrimitives.WriteUInt32LittleEndian(new Span<byte>(sendBytes, 1, 4), conv);
-                        _socket.SendTo(sendBytes, SocketFlags.None, package.Remote);
+                        token.Cancel();
                     }
-                    break;
-                case (byte)NetworkCmd.DependableTransform: {
-                        if (_networkLinks.TryGetValue(package.Remote, out var link)) {
-                            await link.RecvFromRemoteAsync(buffer.Slice(1));
-                        }
-                        else {
-                            //  这是一个无效连接
-                        }
+                    else {
+                        //  连接号已被重置，需要重新请求连接
+                        var sendBytes = new byte[1];
+                        sendBytes[0] = NetworkCmd.RESET;
+                        _socket.SendTo(sendBytes, SocketFlags.None, remote);
                     }
-                    break;
-                case (byte)NetworkCmd.KeepAlive:
-                    //  TODO
-                    break;
-                case (byte)NetworkCmd.DisConnect: {
-                        if (_networkLinks.TryRemove(package.Remote, out var link)) {
-                            link.Stop();
-                        }
-                    }
-                    break;
+                }
             }
-
+            else if ((cmd & NetworkCmd.PUSH) != 0) {
+                //  数据
+                if (_networkLinks.TryGetValue(package.Remote, out var link)) {
+                    await link.RecvFromRemoteAsync(buffer.Slice(1));
+                }
+            }
+            else if ((cmd & NetworkCmd.FIN) != 0) {
+                //  断开连接
+                if (_networkLinks.TryRemove(package.Remote, out var link)) {
+                    link.Stop();
+                }
+            }
 
             //  Pool Return
             NetworkBasePackage.Pool.Return(package);
-
         }
 
 
