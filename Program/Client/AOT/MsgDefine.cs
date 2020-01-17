@@ -420,10 +420,11 @@ namespace MsgDefine.Formatters.MsgDefine.TestMsg
             }
 
             IFormatterResolver formatterResolver = options.Resolver;
-            writer.WriteArrayHeader(3);
+            writer.WriteArrayHeader(4);
             formatterResolver.GetFormatterWithVerify<string>().Serialize(ref writer, value.Account, options);
             formatterResolver.GetFormatterWithVerify<string>().Serialize(ref writer, value.Password, options);
             formatterResolver.GetFormatterWithVerify<string>().Serialize(ref writer, value.Extra, options);
+            writer.Write(value.SeqNumber);
         }
 
         public global::MsgDefine.TestMsg.LoginReqMsg Deserialize(ref MessagePackReader reader, global::MessagePack.MessagePackSerializerOptions options)
@@ -438,6 +439,7 @@ namespace MsgDefine.Formatters.MsgDefine.TestMsg
             var __Account__ = default(string);
             var __Password__ = default(string);
             var __Extra__ = default(string);
+            var __SeqNumber__ = default(int);
 
             for (int i = 0; i < length; i++)
             {
@@ -454,6 +456,9 @@ namespace MsgDefine.Formatters.MsgDefine.TestMsg
                     case 2:
                         __Extra__ = formatterResolver.GetFormatterWithVerify<string>().Deserialize(ref reader, options);
                         break;
+                    case 3:
+                        __SeqNumber__ = reader.ReadInt32();
+                        break;
                     default:
                         reader.Skip();
                         break;
@@ -464,6 +469,7 @@ namespace MsgDefine.Formatters.MsgDefine.TestMsg
             ____result.Account = __Account__;
             ____result.Password = __Password__;
             ____result.Extra = __Extra__;
+            ____result.SeqNumber = __SeqNumber__;
             return ____result;
         }
     }
@@ -481,8 +487,9 @@ namespace MsgDefine.Formatters.MsgDefine.TestMsg
             }
 
             IFormatterResolver formatterResolver = options.Resolver;
-            writer.WriteArrayHeader(1);
+            writer.WriteArrayHeader(2);
             formatterResolver.GetFormatterWithVerify<global::Model.Player>().Serialize(ref writer, value.Player, options);
+            writer.Write(value.SeqNumber);
         }
 
         public global::MsgDefine.TestMsg.LoginRspMsg Deserialize(ref MessagePackReader reader, global::MessagePack.MessagePackSerializerOptions options)
@@ -495,6 +502,7 @@ namespace MsgDefine.Formatters.MsgDefine.TestMsg
             IFormatterResolver formatterResolver = options.Resolver;
             var length = reader.ReadArrayHeader();
             var __Player__ = default(global::Model.Player);
+            var __SeqNumber__ = default(int);
 
             for (int i = 0; i < length; i++)
             {
@@ -505,6 +513,9 @@ namespace MsgDefine.Formatters.MsgDefine.TestMsg
                     case 0:
                         __Player__ = formatterResolver.GetFormatterWithVerify<global::Model.Player>().Deserialize(ref reader, options);
                         break;
+                    case 1:
+                        __SeqNumber__ = reader.ReadInt32();
+                        break;
                     default:
                         reader.Skip();
                         break;
@@ -513,6 +524,7 @@ namespace MsgDefine.Formatters.MsgDefine.TestMsg
 
             var ____result = new global::MsgDefine.TestMsg.LoginRspMsg();
             ____result.Player = __Player__;
+            ____result.SeqNumber = __SeqNumber__;
             return ____result;
         }
     }

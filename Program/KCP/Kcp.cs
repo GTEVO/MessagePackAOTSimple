@@ -84,15 +84,18 @@ namespace System.Net.Sockets.Kcp
             dead_link = IKCP_DEADLINK;
         }
         #region Const
+        public const uint ASK_ALIVE_INTERVAL = 1000 * 4;   //  询问存活间隔
+        public const uint KEEP_ALIVE_EFFECTIVE_DURATION = 32 * 1000; // 保活有效时长
 
         public const int IKCP_RTO_NDL = 30;  // no delay min rto
         public const int IKCP_RTO_MIN = 100; // normal min rto
         public const int IKCP_RTO_DEF = 200;
         public const int IKCP_RTO_MAX = 60000;
-        public const int IKCP_CMD_PUSH = 81; // cmd: push data
-        public const int IKCP_CMD_ACK = 82; // cmd: ack
-        public const int IKCP_CMD_WASK = 83; // cmd: window probe (ask)
-        public const int IKCP_CMD_WINS = 84; // cmd: window size (tell)
+        public const byte IKCP_CMD_ASK_ALIVE = 1; // cmd: heart beat (心跳包:使用 push + report_alive 命令发送，因此它本质上还是一个数据帧，会消耗掉一个序列号，只是它是不带数据的)
+        public const byte IKCP_CMD_PUSH = 1 << 1; // cmd: push data
+        public const byte IKCP_CMD_ACK = 1 << 2; // cmd: ack
+        public const byte IKCP_CMD_WASK = 1 << 3; // cmd: window probe (ask)
+        public const byte IKCP_CMD_WINS = 1 << 4; // cmd: window size (tell)
         public const int IKCP_ASK_SEND = 1;  // need to send IKCP_CMD_WASK
         public const int IKCP_ASK_TELL = 2;  // need to send IKCP_CMD_WINS
         public const int IKCP_WND_SND = 32;
@@ -131,6 +134,8 @@ namespace System.Net.Sockets.Kcp
         }
 
         public int rx_rtt { get; protected set; }
+        public uint last_send_heat_beat_t;
+        public uint last_recv_heat_beat_ack_t;
 
         uint mss;
         int state;
@@ -178,15 +183,12 @@ namespace System.Net.Sockets.Kcp
         private readonly object snd_bufLock = new object();
         private readonly object rcv_queueLock = new object();
         private readonly object rcv_bufLock = new object();
-        private readonly object wait_handerLock = new object();
-
-        private TaskCompletionSource<bool> wait_hander;
 
         /// <summary>
         /// 发送 ack 队列，接收方从底层（远端）收到一个Push命令时，将该命令对应的ack添加进队列
         /// 然后在 FLush 时，将所有ack送入底层输出，发送给发送方（远端），并清空该队列
         /// </summary>
-        ConcurrentQueue<(uint sn, uint ts)> acklist = new ConcurrentQueue<(uint sn, uint ts)>();
+        ConcurrentQueue<(byte cmd, uint sn, uint ts)> acklist = new ConcurrentQueue<(byte cmd, uint sn, uint ts)>();
         /// <summary>
         /// 发送等待队列
         /// </summary>
@@ -292,7 +294,6 @@ namespace System.Net.Sockets.Kcp
 
                     disposedValue = true;
 
-                    wait_hander?.TrySetCanceled();
                 }
             }
             finally {
@@ -517,7 +518,8 @@ namespace System.Net.Sockets.Kcp
                     if (seg.sn == rcv_nxt && rcv_queue.Count < rcv_wnd) {
                         rcv_buf.RemoveFirst();
                         lock (rcv_queueLock) {
-                            rcv_queue.Add(seg);
+                            if (seg.cmd == IKCP_CMD_PUSH)
+                                rcv_queue.Add(seg);
                         }
 
                         rcv_nxt++;
@@ -627,11 +629,38 @@ namespace System.Net.Sockets.Kcp
             }
 
             #endregion
-            lock (wait_handerLock) {
-                wait_hander?.TrySetResult(true);
-            }
 
             return 0;
+        }
+
+        void KeepAlive()
+        {
+            rx_rtt = (int)Math.Max(0, current - last_recv_heat_beat_ack_t - ASK_ALIVE_INTERVAL);
+            var first_send_seg = snd_buf.First;
+            if (first_send_seg != null) {
+                //  将第一个待发送的包标记为心跳包
+                var seg = first_send_seg.Value;
+                seg.cmd |= IKCP_CMD_ASK_ALIVE;
+                first_send_seg.Value = seg;
+            }
+            else if (snd_queue.TryPeek(out var snd_seg)) {
+                //  将待发送的第一个包标记为心跳包
+                snd_seg.cmd |= IKCP_CMD_ASK_ALIVE;
+            }
+            else {
+                //  向发送队列投递一个心跳
+                var seg = KcpSegment.AllocHGlobal(0);
+                seg.cmd = IKCP_CMD_ASK_ALIVE;
+                snd_queue.Enqueue(seg);
+            }
+
+            last_send_heat_beat_t = current;
+            if (last_recv_heat_beat_ack_t == 0) {
+                last_recv_heat_beat_ack_t = current;
+            }
+            else if (last_recv_heat_beat_ack_t + KEEP_ALIVE_EFFECTIVE_DURATION < current) {
+                callbackHandle.LostLink(this);
+            }
         }
 
         /// <summary>
@@ -681,7 +710,7 @@ namespace System.Net.Sockets.Kcp
                 for (var p = snd_buf.First; p != null; p = p.Next) {
                     var seg = p.Value;
                     if (sn == seg.sn) {
-                        rx_rtt = Itimediff(current, ts);
+                        rx_rtt = (int)(ts - seg.ts);
                         snd_buf.Remove(p);
                         KcpSegment.FreeHGlobal(seg);
                         break;
@@ -694,16 +723,15 @@ namespace System.Net.Sockets.Kcp
             }
         }
 
-        void Parse_una(uint una, uint ts)
+        void Parse_una(uint una)
         {
             /// 删除给定时间之前的片段。保留之后的片段
             lock (snd_bufLock) {
                 while (snd_buf.First != null) {
                     var seg = snd_buf.First.Value;
                     if (Itimediff(una, seg.sn) > 0) {
-                        rx_rtt = Itimediff(current, ts);
-                        KcpSegment.FreeHGlobal(seg);                        
-                        snd_buf.RemoveFirst();                        
+                        KcpSegment.FreeHGlobal(seg);
+                        snd_buf.RemoveFirst();
                     }
                     else {
                         break;
@@ -864,21 +892,26 @@ namespace System.Net.Sockets.Kcp
                     return -2;
                 }
 
-                switch (cmd) {
-                    case IKCP_CMD_PUSH:
-                    case IKCP_CMD_ACK:
-                    case IKCP_CMD_WASK:
-                    case IKCP_CMD_WINS:
-                        break;
-                    default:
-                        return -3;
+                if ((cmd & (
+                    IKCP_CMD_PUSH |
+                    IKCP_CMD_ACK |
+                    IKCP_CMD_WASK |
+                    IKCP_CMD_WINS |
+                    IKCP_CMD_ASK_ALIVE)) == 0) {
+                    return -3;
                 }
 
                 rmt_wnd = wnd;
-                Parse_una(una, ts);
+                Parse_una(una);
                 Shrink_buf();
 
-                if (IKCP_CMD_ACK == cmd) {
+                if ((IKCP_CMD_ACK & cmd) != 0) {
+                    if ((IKCP_CMD_ASK_ALIVE & cmd) != 0) {
+                        //  REPORT_ALIVE ACK
+                        last_recv_heat_beat_ack_t = ts;
+                        // Console.WriteLine("recv alive ack ts = " + ts);
+                        // Console.WriteLine("current time   ts = " + current);
+                    }
                     if (Itimediff(current, ts) >= 0) {
                         Update_ack(Itimediff(current, ts));
                     }
@@ -894,10 +927,17 @@ namespace System.Net.Sockets.Kcp
                     }
 
                 }
-                else if (IKCP_CMD_PUSH == cmd) {
+                else if ((IKCP_CMD_PUSH & cmd) != 0) {
                     if (Itimediff(sn, rcv_nxt + rcv_wnd) < 0) {
                         ///instead of ikcp_ack_push
-                        acklist.Enqueue((sn, ts));
+                        if ((IKCP_CMD_ASK_ALIVE & cmd) != 0) {
+                            //  REPORT_ALIVE PUSH
+                            acklist.Enqueue((IKCP_CMD_ACK | IKCP_CMD_ASK_ALIVE, sn, ts));
+                        }
+                        else {
+                            //  普通 PUSH
+                            acklist.Enqueue((IKCP_CMD_ACK | IKCP_CMD_PUSH, sn, ts));
+                        }
 
                         if (Itimediff(sn, rcv_nxt) >= 0) {
                             var seg = KcpSegment.AllocHGlobal((int)length);
@@ -918,12 +958,12 @@ namespace System.Net.Sockets.Kcp
                         }
                     }
                 }
-                else if (IKCP_CMD_WASK == cmd) {
+                else if ((IKCP_CMD_WASK & cmd) != 0) {
                     // ready to send back IKCP_CMD_WINS in Ikcp_flush
                     // tell remote my window size
                     probe |= IKCP_ASK_TELL;
                 }
-                else if (IKCP_CMD_WINS == cmd) {
+                else if ((IKCP_CMD_WINS & cmd) != 0) {
                     // do nothing
                 }
                 else {
@@ -958,9 +998,6 @@ namespace System.Net.Sockets.Kcp
                         incr = rmt_wnd * mss_;
                     }
                 }
-            }
-            lock (wait_handerLock) {
-                wait_hander?.TrySetResult(false);
             }
             return 0;
         }
@@ -1027,7 +1064,7 @@ namespace System.Net.Sockets.Kcp
                         offset = 0;
                         buffer = CreateBuffer(BufferNeedSize);
                     }
-
+                    seg.cmd = temp.cmd;
                     seg.sn = temp.sn;
                     seg.ts = temp.ts;
                     offset += seg.Encode(buffer.Memory.Span.Slice(offset));
@@ -1102,7 +1139,7 @@ namespace System.Net.Sockets.Kcp
             while (Itimediff(snd_nxt, snd_una + cwnd_) < 0) {
                 if (snd_queue.TryDequeue(out var newseg)) {
                     newseg.conv = conv;
-                    newseg.cmd = IKCP_CMD_PUSH;
+                    newseg.cmd |= IKCP_CMD_PUSH;
                     newseg.wnd = wnd_;
                     newseg.ts = current_;
                     newseg.sn = snd_nxt;
@@ -1132,6 +1169,7 @@ namespace System.Net.Sockets.Kcp
             lock (snd_bufLock) {
                 // flush data segments
                 foreach (var item in snd_buf) {
+
                     var segment = item;
                     var needsend = false;
                     var debug = Itimediff(current_, segment.resendts);
@@ -1170,6 +1208,10 @@ namespace System.Net.Sockets.Kcp
                         segment.ts = current_;
                         segment.wnd = wnd_;
                         segment.una = rcv_nxt;
+
+                        //                         if ((segment.cmd & IKCP_CMD_ASK_ALIVE) != 0) {
+                        //                             Console.WriteLine("send alive ts = " + segment.ts);
+                        //                         }
 
                         var need = IKCP_OVERHEAD + segment.len;
                         if (offset + need > mtu) {
@@ -1234,7 +1276,7 @@ namespace System.Net.Sockets.Kcp
         /// </summary>
         /// <param name="time">DateTime.UtcNow</param>
         /// <param name="cancellationToken"></param>
-        public async Task UpdateAsync(DateTime time)
+        public void Update(DateTime time)
         {
             if (CheckDispose()) {
                 //检查释放
@@ -1260,20 +1302,10 @@ namespace System.Net.Sockets.Kcp
                 if (Itimediff(current, ts_flush) >= 0) {
                     ts_flush = current + interval;
                 }
-
-                Flush();
-            }
-            var cwnd_ = Min(snd_wnd, rmt_wnd);
-            if (nocwnd == 0) {
-                cwnd_ = Min(cwnd, cwnd_);
-            }
-            if (cwnd_ == 0)
-                return;
-            if (snd_buf.Count == 0 && snd_queue.Count == 0) {
-                lock (wait_handerLock) {
-                    wait_hander = new TaskCompletionSource<bool>();
+                if (last_send_heat_beat_t + ASK_ALIVE_INTERVAL < current) {
+                    KeepAlive();
                 }
-                await wait_hander.Task;
+                Flush();
             }
         }
 
@@ -1327,7 +1359,15 @@ namespace System.Net.Sockets.Kcp
             }
 
             minimal = tm_packet < tm_flush_ ? tm_packet : tm_flush_;
-            if (minimal >= interval) minimal = (int)interval;
+            if (minimal >= interval) {
+                if (snd_queue.Count > 0)
+                    minimal = (int)interval;
+                else
+                    minimal = (int)ASK_ALIVE_INTERVAL;
+            }
+            else {
+
+            }
 
             return TimeSpan.FromMilliseconds(minimal);
         }

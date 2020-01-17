@@ -36,15 +36,10 @@ namespace ClientLib
             _messageProcessor.Run(TaskScheduler.FromCurrentSynchronizationContext());
 
             UdpClient = new UdpClient();
-            UdpClient.Run(IPAddress.Loopback, 8063);
-            UdpClient.OnRecvKcpPackage += NetworkLink_OnRecvKcpPackage;
+            UdpClient.Run(IPAddress.Parse("192.168.0.128"), 8063);
+            UdpClient.OnRecvKcpPackage += _messageProcessor.ProcessBytePackage;
 
             Status = AppStatus.Running;
-        }
-
-        private void NetworkLink_OnRecvKcpPackage(IMemoryOwner<byte> memoryOwner, int len, uint conv)
-        {
-            _messageProcessor.ProcessBytePackageAsync(memoryOwner, len);
         }
 
         public void UnInit()

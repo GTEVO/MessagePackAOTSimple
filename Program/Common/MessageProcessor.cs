@@ -15,13 +15,15 @@ namespace CommonLib
     {
         public static ISerializer DefaultSerializer { get; set; }
 
-        public readonly BufferBlock<NetworkBasePackage> _waitForProcessPackage = new BufferBlock<NetworkBasePackage>();
+        public readonly BufferBlock<NetworkLinkPackage> _waitForProcessPackage = new BufferBlock<NetworkLinkPackage>();
 
         private readonly CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
 
+        #region Message Handlers
+
         private interface IHandler
         {
-            void ReadMessage(ReadOnlyMemory<byte> data);
+            void ReadMessage(ReadOnlyMemory<byte> data, IReliableDataLink fromLink);
             byte[] Package<T>(T data);
         }
 
@@ -29,7 +31,7 @@ namespace CommonLib
         {
             private class DefaultHandler : IHandler
             {
-                public event Action<MsgType> DataHandler;
+                public event Action<MsgType, IReliableDataLink> DataHandler;
                 private readonly ISerializer _serializer;
 
                 public DefaultHandler(ISerializer serializer)
@@ -39,11 +41,11 @@ namespace CommonLib
                     Debug.LogFormat("Handler: {0} Be Created", type.FullName);
                 }
 
-                public void ReadMessage(ReadOnlyMemory<byte> data)
+                public void ReadMessage(ReadOnlyMemory<byte> data, IReliableDataLink fromLink)
                 {
                     if (DataHandler != null) {
                         var msg = _serializer.Deserialize<MsgType>(data);
-                        DataHandler(msg);
+                        DataHandler(msg, fromLink);
                     }
                 }
 
@@ -78,7 +80,7 @@ namespace CommonLib
                     return _handler.Package(message);
             }
 
-            public static void RegisterHandler(Action<MsgType> action)
+            public static void RegisterHandler(Action<MsgType, IReliableDataLink> action)
             {
                 if (_handler != null) {
                     _handler.DataHandler += action;
@@ -88,7 +90,7 @@ namespace CommonLib
                 }
             }
 
-            public static void UnRegisterHandler(Action<MsgType> action)
+            public static void UnRegisterHandler(Action<MsgType, IReliableDataLink> action)
             {
                 if (_handler != null) {
                     _handler.DataHandler -= action;
@@ -102,32 +104,35 @@ namespace CommonLib
 
         private static readonly Dictionary<int, IHandler> _handlers = new Dictionary<int, IHandler>();
 
-        public static void RegisterHandler<T>(Action<T> action)
+        #endregion
+
+        public static void RegisterHandler<T>(Action<T, IReliableDataLink> action)
         {
             HandlerCache<T>.RegisterHandler(action);
         }
 
-        public static void UnRegisterHandler<T>(Action<T> action)
+        public static void UnRegisterHandler<T>(Action<T, IReliableDataLink> action)
         {
             HandlerCache<T>.UnRegisterHandler(action);
         }
 
-        public Task ProcessBytePackageAsync(IMemoryOwner<byte> memoryOwner, int size)
+        public void ProcessBytePackage(IMemoryOwner<byte> memoryOwner, int size, IReliableDataLink fromLink)
         {
             //  Pool Get
-            var package = NetworkBasePackage.Pool.Get();
+            var package = NetworkLinkPackage.Pool.Get();
             package.MemoryOwner = memoryOwner;
             package.Size = size;
-            return _waitForProcessPackage.SendAsync(package);
+            package.Link = fromLink;
+            _waitForProcessPackage.Post(package);
         }
 
-        public Task ProcessBytePackageAsync(ReadOnlyMemory<byte> memory)
+        public Task ProcessBytePackageAsync(IMemoryOwner<byte> memoryOwner, int size, IReliableDataLink fromLink)
         {
             //  Pool Get
-            var package = NetworkBasePackage.Pool.Get();
-            package.MemoryOwner = MemoryPool<byte>.Shared.Rent(memory.Length);
-            memory.CopyTo(package.MemoryOwner.Memory);
-            package.Size = memory.Length;
+            var package = NetworkLinkPackage.Pool.Get();
+            package.MemoryOwner = memoryOwner;
+            package.Size = size;
+            package.Link = fromLink;
             return _waitForProcessPackage.SendAsync(package);
         }
 
@@ -148,10 +153,10 @@ namespace CommonLib
                     var bytes = package.MemoryOwner.Memory.Slice(0, package.Size);
                     var msgPack = DefaultSerializer.Unpack(bytes);
                     if (_handlers.TryGetValue(msgPack.Id, out var handler)) {
-                        handler.ReadMessage(msgPack.Data);
+                        handler.ReadMessage(msgPack.Data, package.Link);
                     }
                     else {
-                        Debug.LogWarningFormat("HandlerManager: MsgId {0} No Handler To Process");
+                        Debug.LogWarningFormat("HandlerManager: MsgId {0} No Handler To Process", msgPack.Id);
                     }
                     //  Pool Return
                     NetworkBasePackage.Pool.Return(package);

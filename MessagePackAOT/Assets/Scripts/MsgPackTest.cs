@@ -1,21 +1,17 @@
 ﻿using MessagePack;
-using MessagePack.Resolvers;
-using MsgDefine;
 using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Net;
-using System.Net.Sockets;
 using System.IO;
 using CommonLib;
 using Debug = CommonLib.Debug;
 using MsgDefine.TestMsg;
-using MsgDefine.Resolvers;
 using ClientLib;
 using System.Net.Http;
 using System.Collections.Generic;
+using CommonLib.Network;
 
 public class MsgPackTest : MonoBehaviour
 {
@@ -32,13 +28,13 @@ public class MsgPackTest : MonoBehaviour
     private void Awake()
     {
         App.Instacne.Init();
+        StartCoroutine(Ping());
         _cancellationTokenSource = new CancellationTokenSource();
     }
 
     public void OnClickCreateApps()
     {
-        for (int i = 0; i < 100; i++)
-        {
+        for (int i = 0; i < 100; i++) {
             var app = new App();
             apps.Add(app);
             app.Init();
@@ -48,8 +44,7 @@ public class MsgPackTest : MonoBehaviour
 
     public void OnClickCleanApps()
     {
-        foreach (var item in apps)
-        {
+        foreach (var item in apps) {
             item.UnInit();
         }
         apps.Clear();
@@ -74,7 +69,7 @@ public class MsgPackTest : MonoBehaviour
         text.transform.localScale = Vector3.one;
     }
 
-    private void HandleMsg1(TestMsg1 msg)
+    private void HandleMsg1(TestMsg1 msg, IReliableDataLink fromLink)
     {
         var type = msg.GetType();
         Debug.LogFormat("M1 - {0}", msg.Name);
@@ -82,7 +77,7 @@ public class MsgPackTest : MonoBehaviour
         MessageProcessor.UnRegisterHandler<TestMsg1>(HandleMsg1);
     }
 
-    private void HandleMsg2(TestMsg2 msg)
+    private void HandleMsg2(TestMsg2 msg, IReliableDataLink fromLink)
     {
         var type = msg.GetType();
         Debug.LogFormat("M2 - {0}", msg.Age);
@@ -104,8 +99,7 @@ public class MsgPackTest : MonoBehaviour
 
     public void OnClickDeserialize()
     {
-        var loginMsg = new LoginReqMsg
-        {
+        var loginMsg = new LoginReqMsg {
             Account = "account",
             Password = "pwd",
             Extra = "哈哈哈",
@@ -113,8 +107,7 @@ public class MsgPackTest : MonoBehaviour
         var reqMsgBytes = MessagePackSerializer.Serialize(loginMsg);
         var reqMsgreqMsgObj = MessagePackSerializer.Deserialize<LoginReqMsg>(reqMsgBytes);
 
-        var registerMsg = new RegisterReqMsg
-        {
+        var registerMsg = new RegisterReqMsg {
             Phone = "1350000",
             Authcode = "验证码",
         };
@@ -130,11 +123,9 @@ public class MsgPackTest : MonoBehaviour
 
 
         var mainThreadTaskScheduler = TaskScheduler.FromCurrentSynchronizationContext();
-        Task.Run(() =>
-        {
+        Task.Run(() => {
             Debug.LogFormat("Main Task Thread [{0}]", Thread.CurrentThread.ManagedThreadId);
-            var msgpackTask = new Task(() =>
-            {
+            var msgpackTask = new Task(() => {
                 Debug.LogFormat("MsgpackTask Task Thread [{0}]", Thread.CurrentThread.ManagedThreadId);
                 var registerMsgBytes = MessagePackSerializer.Serialize(registerMsg);
                 var deserializeMsg = MessagePackSerializer.Deserialize<RegisterReqMsg>(registerMsgBytes);
@@ -144,8 +135,7 @@ public class MsgPackTest : MonoBehaviour
             });
             msgpackTask.Start(mainThreadTaskScheduler);
 
-            var webTask = new Task(async () =>
-            {
+            var webTask = new Task(async () => {
                 Debug.LogFormat("before await Thread [{0}]", Thread.CurrentThread.ManagedThreadId);
                 await Wait();
                 Debug.LogFormat("after await Thread [{0}]", Thread.CurrentThread.ManagedThreadId);
@@ -214,9 +204,8 @@ public class MsgPackTest : MonoBehaviour
 
     private IEnumerator Ping()
     {
-        var wait = new WaitForSecondsRealtime(0.8f);
-        do
-        {
+        var wait = new WaitForSecondsRealtime(1.2f);
+        do {
             rtt.text = App.Instacne.UdpClient.Rtt.ToString();
             yield return wait;
         } while (App.Instacne.Status == App.AppStatus.Running);
@@ -224,18 +213,14 @@ public class MsgPackTest : MonoBehaviour
 
     private void SendMsg(App app)
     {
-        StartCoroutine(Ping());
-        Task.Run(async () =>
-        {
-            var loginReq = new LoginReqMsg
-            {
-                Account = "A",
-                Password = "PWD",
-                Extra = "额外"
-            };
+        Task.Run(async () => {
             await Task.Delay(1000);
-            do
-            {
+            do {
+                var loginReq = new LoginReqMsg {
+                    Account = app.UdpClient.ConectionId.ToString(),
+                    Password = "PWD",
+                    Extra = System.DateTime.Now.ToFileTimeUtc().ToString()
+                };
                 app.UdpClient.SendMessage(loginReq);
                 await Task.Delay(16);
             } while (app.Status == App.AppStatus.Running);

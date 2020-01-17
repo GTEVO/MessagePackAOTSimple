@@ -40,6 +40,11 @@ namespace CommonLib.Network
         }
     }
 
+    public class NetworkLinkPackage : NetworkBasePackage
+    {
+        public static new ObjectPool<NetworkLinkPackage> Pool = ObjectPool.Create(new NetworkPackPolicy<NetworkLinkPackage>());
+        public IReliableDataLink Link { get; set; }
+    }
 
     public class NetworkPackage : NetworkBasePackage
     {

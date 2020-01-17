@@ -16,7 +16,7 @@ namespace UnitTestProject1
         [Fact]
         public async Task Test1()
         {
-            for (int i = 0; i < 3000; i++) {
+            for (int i = 0; i < 1000; i++) {
                 ClientAppTest();
             }
             await Task.Delay(1000 * 60 * 5);
@@ -34,10 +34,8 @@ namespace UnitTestProject1
             messageProcessor.Run(TaskScheduler.FromCurrentSynchronizationContext());
 
             UdpClient udpClient = new UdpClient();
-            udpClient.Run(IPAddress.Parse("192.168.31.10"), 8063);
-            udpClient.OnRecvKcpPackage += (IMemoryOwner<byte> memoryOwner, int len, uint conv) => {
-                messageProcessor.ProcessBytePackageAsync(memoryOwner, len);
-            };
+            udpClient.Run(IPAddress.Parse("192.168.0.128"), 8063);
+            udpClient.OnRecvKcpPackage += messageProcessor.ProcessBytePackage;
 
             Task.Run(async () => {
                 int count = 0;
@@ -50,10 +48,13 @@ namespace UnitTestProject1
                         Account = conv,
                         Password = "B",
                         Extra = count.ToString(),
+                        SeqNumber = count,
                     };
                     udpClient.SendMessage(msg);
+                    udpClient.SendMessage(msg);
+                    udpClient.SendMessage(msg);
                 }
-                await Task.Delay(60 * 1000);
+                await Task.Delay(600 * 1000);
                 udpClient.Stop();
                 messageProcessor.Stop();
             });

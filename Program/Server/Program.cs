@@ -31,17 +31,23 @@ namespace Server
 
             MessageProcessor messageProcessor = new MessageProcessor();
             messageProcessor.Run(TaskScheduler.Default);
-            MessageProcessor.RegisterHandler<LoginReqMsg>(msg =>
-            {
+            MessageProcessor.RegisterHandler<LoginReqMsg>((msg, fromLink) => {
+                var rsp = new LoginRspMsg {
+                    Player = new Model.Player {
+                        Status = Model.Status.Online,
+                        Name = "二逼青年"
+                    },
+                    SeqNumber = msg.SeqNumber,
+                };
+                var bytes = MessageProcessor.PackageMessage(rsp);
+                fromLink.SendToRemoteAsync(bytes);
                 //  Debug.LogFormat("{0}-{1}-{2}", msg.Account, msg.Password, msg.Extra);
             });
-
 
             var udpServer = new UdpServer(messageProcessor);
             udpServer.Start(IPAddress.Any, 8063);
 
-            do
-            {
+            do {
                 var input = Console.ReadLine();
             } while (true);
 

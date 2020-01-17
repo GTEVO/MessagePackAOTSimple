@@ -8,6 +8,7 @@ namespace System.Net.Sockets.Kcp
     /// </summary>
     public interface IKcpCallback
     {
+        void LostLink(Kcp kcp);
         /// <summary>
         /// kcp 发送方向输出
         /// </summary>
@@ -40,6 +41,6 @@ namespace System.Net.Sockets.Kcp
 
     public interface IKcpUpdate
     {
-        Task UpdateAsync(DateTime time);
+        void Update(DateTime time);
     }
 }

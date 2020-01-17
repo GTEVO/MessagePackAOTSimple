@@ -9,12 +9,21 @@ using System.Threading.Tasks.Dataflow;
 
 namespace CommonLib.Network
 {
-    public class KcpLink
+    public class KcpLink : IReliableDataLink, IKcpLink
     {
         public const int MTU = 1400;
 
+        /// <summary>
+        /// 必须保证回调顺序与远端发送顺序一致
+        /// </summary>
+        public event Action<IMemoryOwner<byte>, int, IReliableDataLink> OnRecvKcpPackage;
+
+        public uint Conv { get; private set; }
+        public int Rtt => _kcp.rx_rtt;
+
         private Kcp _kcp;
         private CancellationTokenSource _tokenSource;
+        private CancellationTokenSource _updateDelaytokenSource;
 
         private BufferBlock<NetworkBasePackage> _recvFromRemote;
         private BufferBlock<NetworkBasePackage> _recvFromLocal;
@@ -22,24 +31,14 @@ namespace CommonLib.Network
         [ThreadStatic]
         private static TaskScheduler _synchronizationContextTaskScheduler;
 
-        public uint Conv { get; private set; }
-
-        public int Rtt => _kcp.rx_rtt;
-
-        /// <summary>
-        /// 必须保证回调顺序与远端发送顺序一致
-        /// </summary>
-        public event Action<IMemoryOwner<byte>, int, uint> OnRecvKcpPackage;
-
         public void Run(uint conv, IKcpCallback kcpCallback)
         {
             _recvFromRemote = new BufferBlock<NetworkBasePackage>();
             _recvFromLocal = new BufferBlock<NetworkBasePackage>();
 
             Conv = conv;
-            _kcp = new Kcp(conv, kcpCallback);
 
-            _kcp = new Kcp(1, kcpCallback);
+            _kcp = new Kcp(conv, kcpCallback, KcpRentable.Instacne);
             _kcp.NoDelay(1, 10, 2, 1); // 极速模式
             _kcp.WndSize(128, 128);
             _kcp.SetMtu(MTU);
@@ -57,8 +56,10 @@ namespace CommonLib.Network
                         SynchronizationContext.SetSynchronizationContext(synchronizationContext);
                     }
                     _synchronizationContextTaskScheduler = TaskScheduler.FromCurrentSynchronizationContext();
-                    Debug.LogFormat("Create SynchronizationContext TaskScheduler For Thread[{1}]", conv, Thread.CurrentThread.ManagedThreadId);
+                    Debug.LogFormat("Create SynchronizationContext TaskScheduler For Thread[{0}]", Thread.CurrentThread.ManagedThreadId);
                 }
+
+                _updateDelaytokenSource = new CancellationTokenSource();
 
                 //  这样写的目的，在服务器上，压解缩、加解密可以利用多核（多个KCP连接之间的压解缩、加解密是可以并行的）
                 //  update
@@ -67,13 +68,14 @@ namespace CommonLib.Network
                     while (!_tokenSource.IsCancellationRequested) {
                         try {
                             var now = DateTime.UtcNow;
-                            await _kcp.UpdateAsync(now);
+                            _kcp.Update(now);
                             now = DateTime.UtcNow;
                             var delay = _kcp.Check(now);
-                            await Task.Delay(delay, _tokenSource.Token);
+                            await Task.Delay(delay, _updateDelaytokenSource.Token);
                         }
                         catch (TaskCanceledException) {
-                            break;
+                            _updateDelaytokenSource = new CancellationTokenSource();
+                            continue;
                         }
                         catch (ObjectDisposedException e) {
                             //  一般情况下，Socket发送数据时，被关闭时会进入此分支；暂时这么处理
@@ -93,17 +95,20 @@ namespace CommonLib.Network
                             var package = await _recvFromRemote.ReceiveAsync(_tokenSource.Token);
                             var result = _kcp.Input(package.MemoryOwner.Memory.Span.Slice(0, package.Size));
                             while (result == 0) {
+                                //  收到了帧，则需要Flush ack
+                                _updateDelaytokenSource.Cancel(true);
                                 var (buffer, avalidLength) = _kcp.TryRecv();
                                 if (buffer == null)
                                     break;
                                 //  在此解压、解密
-                                OnRecvKcpPackage?.Invoke(buffer, avalidLength, Conv);
+                                OnRecvKcpPackage?.Invoke(buffer, avalidLength, this);
                             };
                         }
                         catch (TaskCanceledException) {
                             break;
                         }
                         catch (Exception e) {
+                            //  _updateDelaytokenSource.Cancel(true);有可能抛出异常，可以忽视
                             Debug.LogErrorFormat("Kcp.inputTask: \r\n {0}", e);
                         }
                     }
@@ -118,12 +123,15 @@ namespace CommonLib.Network
                             var package = await _recvFromLocal.ReceiveAsync(_tokenSource.Token);
                             //  在此压缩、加密                       
                             _kcp.Send(package.MemoryOwner.Memory.Span.Slice(0, package.Size));
+                            //  需要发送帧，需要Flush Snd_Queue
+                            _updateDelaytokenSource.Cancel(true);
                             NetworkBasePackage.Pool.Return(package);
                         }
                         catch (TaskCanceledException) {
                             break;
                         }
                         catch (Exception e) {
+                            //  _updateDelaytokenSource.Cancel(true);有可能抛出异常，可以忽视
                             Debug.LogErrorFormat("Kcp.sendTask: \r\n {0}", e);
                         }
                     }
@@ -139,6 +147,7 @@ namespace CommonLib.Network
 
         public void Stop(Action onCancel = null)
         {
+            OnRecvKcpPackage = null;
             if (onCancel != null)
                 _tokenSource.Token.Register(onCancel);
             _tokenSource.Cancel();

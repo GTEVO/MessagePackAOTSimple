@@ -41,6 +41,9 @@ namespace MsgDefine.TestMsg
         [Key(2)]
         public string Extra { get; set; }
 
+        [Key(3)]
+        public int SeqNumber { get; set; }
+
     }
 
     [MessagePackObject]
@@ -50,6 +53,8 @@ namespace MsgDefine.TestMsg
         [Key(0)]
         public Player Player { get; set; }
 
+        [Key(1)]
+        public int SeqNumber { get; set; }
     }
 
     [MessagePackObject]
