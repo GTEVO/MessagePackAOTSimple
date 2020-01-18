@@ -36,7 +36,7 @@ namespace ClientLib
             _messageProcessor.Run(TaskScheduler.FromCurrentSynchronizationContext());
 
             UdpClient = new UdpClient();
-            UdpClient.Run(IPAddress.Parse("192.168.0.128"), 8063);
+            UdpClient.Run(IPAddress.Parse("192.168.31.10"), 8063);
             UdpClient.OnRecvKcpPackage += _messageProcessor.ProcessBytePackage;
 
             Status = AppStatus.Running;

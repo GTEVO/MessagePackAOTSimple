@@ -669,6 +669,7 @@ namespace System.Net.Sockets.Kcp
         /// <param name="rtt"></param>
         void Update_ack(int rtt)
         {
+            rx_rtt = rtt;
             if (rx_srtt == 0) {
                 rx_srtt = (uint)rtt;
                 rx_rttval = (uint)rtt / 2;
@@ -700,7 +701,7 @@ namespace System.Net.Sockets.Kcp
             }
         }
 
-        void Parse_ack(uint sn, uint ts)
+        void Parse_ack(uint sn)
         {
             if (Itimediff(sn, snd_una) < 0 || Itimediff(sn, snd_nxt) >= 0) {
                 return;
@@ -710,7 +711,6 @@ namespace System.Net.Sockets.Kcp
                 for (var p = snd_buf.First; p != null; p = p.Next) {
                     var seg = p.Value;
                     if (sn == seg.sn) {
-                        rx_rtt = (int)(ts - seg.ts);
                         snd_buf.Remove(p);
                         KcpSegment.FreeHGlobal(seg);
                         break;
@@ -915,7 +915,7 @@ namespace System.Net.Sockets.Kcp
                     if (Itimediff(current, ts) >= 0) {
                         Update_ack(Itimediff(current, ts));
                     }
-                    Parse_ack(sn, ts);
+                    Parse_ack(sn);
                     Shrink_buf();
 
                     if (flag == 0) {

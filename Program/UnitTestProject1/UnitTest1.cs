@@ -29,12 +29,12 @@ namespace UnitTestProject1
 
             var messageProcessor = new MessageProcessor();
             if (SynchronizationContext.Current == null) {
-                SynchronizationContext.SetSynchronizationContext(new SynchronizationContext());
+                SynchronizationContext.SetSynchronizationContext(new SynchronizationContext()); 
             }
             messageProcessor.Run(TaskScheduler.FromCurrentSynchronizationContext());
 
             UdpClient udpClient = new UdpClient();
-            udpClient.Run(IPAddress.Parse("192.168.0.128"), 8063);
+            udpClient.Run(IPAddress.Parse("192.168.31.10"), 8063);
             udpClient.OnRecvKcpPackage += messageProcessor.ProcessBytePackage;
 
             Task.Run(async () => {

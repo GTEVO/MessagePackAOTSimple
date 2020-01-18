@@ -30,6 +30,11 @@ namespace CommonLib
             DefaultDebugger?.LogWarningFormat("[{0}] {1}", new object[] { DateTime.Now, warn });
         }
 
+        internal static void LogException(Exception exception)
+        {
+            throw new NotImplementedException();
+        }
+
         public static void LogWarningFormat(string format, params object[] args)
         {
             DefaultDebugger?.LogWarningFormat("[{0}] {1}", new object[] { DateTime.Now, string.Format(format, args) });
