@@ -25,8 +25,74 @@ public class MsgPackTest : MonoBehaviour
 
     private List<App> apps = new List<App>();
 
-    private void Awake()
+
+    public async Task FromCurrentSynchronizationContext_Test()
     {
+        long count = 0;
+        long t = 1L * 1000;
+
+        TaskCompletionSource<bool> taskCompletionSource1 = new TaskCompletionSource<bool>();
+        TaskCompletionSource<bool> taskCompletionSource2 = new TaskCompletionSource<bool>();
+        TaskCompletionSource<bool> taskCompletionSource3 = new TaskCompletionSource<bool>();
+
+        var sig = 3;
+
+        var t1 = new Task(async () => {
+
+            for (long i = 0; i < t; i++) {
+                count += 2;
+                await Task.Delay(1);
+            }
+            taskCompletionSource1.SetResult(true);
+            --sig;
+        }, CancellationToken.None, TaskCreationOptions.None);
+        var t2 = new Task(async () => {
+
+            for (long i = 0; i < t; i++) {
+                count += 3;
+                await Task.Delay(1);
+            }
+            taskCompletionSource2.SetResult(true);
+            --sig;
+        }, CancellationToken.None, TaskCreationOptions.None);
+        var t3 = new Task(async () => {
+
+            for (long i = 0; i < t; i++) {
+                count += 5;
+                await Task.Delay(1);
+            }
+            taskCompletionSource3.SetResult(true);
+            --sig;
+        }, CancellationToken.None, TaskCreationOptions.None);
+
+        if (SynchronizationContext.Current == null) {
+            var synchronizationContext = new SynchronizationContext();
+            SynchronizationContext.SetSynchronizationContext(synchronizationContext);
+        }
+
+        var ts = TaskScheduler.FromCurrentSynchronizationContext();
+
+        t1.Start(ts);
+        t2.Start(ts);
+        t3.Start(ts);
+
+        await Task.Run(async () => {
+            do {
+                if (sig == 0)
+                    break;
+                await Task.Delay(10);
+            } while (true);
+        });
+
+
+        //  Task.WaitAll(taskCompletionSource1.Task, taskCompletionSource2.Task, taskCompletionSource3.Task);
+
+        UnityEngine.Debug.Log("result =" + (count == t * (2 + 3 + 5)));
+    }
+
+    private async Task Awake()
+    {
+        await FromCurrentSynchronizationContext_Test();
         App.Instacne.Init();
         StartCoroutine(Ping());
         _cancellationTokenSource = new CancellationTokenSource();
