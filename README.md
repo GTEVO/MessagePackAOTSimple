@@ -15,3 +15,4 @@ en...... 专走邪门歪道 ^~^
 
 ## Mark
 reed solomon FEC+KCP (https://github.com/skywind3000/kcp/issues/38)
+http://mauve.mizuumi.net/2012/07/05/understanding-fighting-game-networking/
