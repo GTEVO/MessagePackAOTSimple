@@ -47,21 +47,21 @@ namespace CommonLib.Network
 
     public class LinkPackage : DataPackage
     {
-        public static new ObjectPool<LinkPackage> Pool = ObjectPool.Create(new DataPackagePolicy<LinkPackage>());
+        public readonly static new ObjectPool<LinkPackage> Pool = ObjectPool.Create(new DataPackagePolicy<LinkPackage>());
 
         public IReliableDataLink Link { get; set; }
     }
 
     public class NetworkPackage : DataPackage
     {
-        public static new ObjectPool<NetworkPackage> Pool = ObjectPool.Create(new DataPackagePolicy<NetworkPackage>());
+        public readonly static new ObjectPool<NetworkPackage> Pool = ObjectPool.Create(new DataPackagePolicy<NetworkPackage>());
 
         public EndPoint Remote { get; set; }
     }
 
     public class DataPackage : IDataPackage
     {
-        public static ObjectPool<DataPackage> Pool = ObjectPool.Create(new DataPackagePolicy<DataPackage>());
+        public readonly static ObjectPool<DataPackage> Pool = ObjectPool.Create(new DataPackagePolicy<DataPackage>());
 
         public int Offset { get; set; }
         public int Lenght { get; set; }

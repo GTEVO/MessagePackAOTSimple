@@ -35,7 +35,7 @@ namespace CommonLib.Network
             Task.Run(async () => {
                 do {
                     Debug.LogFormat("clients link count : {0}", _networkLinks.Count);
-                    await Task.Delay(1000);
+                    await Task.Delay(1000 * 2);
                 } while (!_cancellationTokenSource.IsCancellationRequested);
             }, _cancellationTokenSource.Token);
         }
