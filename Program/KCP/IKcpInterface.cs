@@ -1,4 +1,5 @@
-﻿using System.Threading.Tasks;
+﻿using System.Threading;
+using System.Threading.Tasks;
 using BufferOwner = System.Buffers.IMemoryOwner<byte>;
 
 namespace System.Net.Sockets.Kcp
@@ -41,6 +42,6 @@ namespace System.Net.Sockets.Kcp
 
     public interface IKcpUpdate
     {
-        void Update(DateTime time);
+        void Update(in DateTime time);
     }
 }

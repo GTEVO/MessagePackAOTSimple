@@ -15,7 +15,7 @@ namespace CommonLib
     {
         public static ISerializer DefaultSerializer { get; set; }
 
-        public readonly BufferBlock<NetworkLinkPackage> _waitForProcessPackage = new BufferBlock<NetworkLinkPackage>();
+        public readonly BufferBlock<LinkPackage> _waitForProcessPackage = new BufferBlock<LinkPackage>();
 
         private readonly CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
 
@@ -24,7 +24,7 @@ namespace CommonLib
         private interface IHandler
         {
             void ReadMessage(ReadOnlyMemory<byte> data, IReliableDataLink fromLink);
-            byte[] Package<T>(T data);
+            (IMemoryOwner<byte> buffer, int len) Package<T>(T data);
         }
 
         private static class HandlerCache<MsgType>
@@ -49,7 +49,7 @@ namespace CommonLib
                     }
                 }
 
-                public byte[] Package<T>(T data)
+                public (IMemoryOwner<byte> buffer, int len) Package<T>(T data)
                 {
                     return _serializer.Package(_id, data);
                 }
@@ -72,7 +72,7 @@ namespace CommonLib
                 }
             }
 
-            public static byte[] PackageMessage(MsgType message)
+            public static (IMemoryOwner<byte> buffer, int len) PackageMessage(MsgType message)
             {
                 if (_handler == null)
                     return default;
@@ -119,9 +119,9 @@ namespace CommonLib
         public void ProcessBytePackage(IMemoryOwner<byte> memoryOwner, int size, IReliableDataLink fromLink)
         {
             //  Pool Get
-            var package = NetworkLinkPackage.Pool.Get();
+            var package = LinkPackage.Pool.Get();
             package.MemoryOwner = memoryOwner;
-            package.Size = size;
+            package.Lenght = size;
             package.Link = fromLink;
             _waitForProcessPackage.Post(package);
         }
@@ -129,14 +129,14 @@ namespace CommonLib
         public Task ProcessBytePackageAsync(IMemoryOwner<byte> memoryOwner, int size, IReliableDataLink fromLink)
         {
             //  Pool Get
-            var package = NetworkLinkPackage.Pool.Get();
+            var package = LinkPackage.Pool.Get();
             package.MemoryOwner = memoryOwner;
-            package.Size = size;
+            package.Lenght = size;
             package.Link = fromLink;
             return _waitForProcessPackage.SendAsync(package);
         }
 
-        public static byte[] PackageMessage<T>(T message)
+        public static (IMemoryOwner<byte> buffer, int len) PackageMessage<T>(T message)
         {
             return HandlerCache<T>.PackageMessage(message);
         }
@@ -149,17 +149,31 @@ namespace CommonLib
         {
             var task = new Task(async () => {
                 while (true) {
-                    var package = await _waitForProcessPackage.ReceiveAsync();
-                    var bytes = package.MemoryOwner.Memory.Slice(0, package.Size);
-                    var msgPack = DefaultSerializer.Unpack(bytes);
-                    if (_handlers.TryGetValue(msgPack.Id, out var handler)) {
-                        handler.ReadMessage(msgPack.Data, package.Link);
+                    LinkPackage package = null;
+                    try {
+                        package = await _waitForProcessPackage.ReceiveAsync();
+                        var bytes = package.MemoryOwner.Memory.Slice(0, package.Lenght);
+                        var (msgId, body) = DefaultSerializer.Unpack(bytes);
+                        if (_handlers.TryGetValue(msgId, out var handler)) {
+                            handler.ReadMessage(body, package.Link);
+                        }
+                        else {
+                            Debug.LogWarningFormat("HandlerManager: MsgId {0} No Handler To Process", msgId);
+                        }
                     }
-                    else {
-                        Debug.LogWarningFormat("HandlerManager: MsgId {0} No Handler To Process", msgPack.Id);
+                    catch (TaskCanceledException) {
+                        break;
                     }
-                    //  Pool Return
-                    NetworkBasePackage.Pool.Return(package);
+                    catch (Exception e) {
+                        Debug.LogErrorFormat("HandlerManager: \r\n {0}", e);
+                    }
+                    finally {
+                        //  Pool Return
+                        if (package != null) {
+                            package.MemoryOwner.Dispose();
+                            DataPackage.Pool.Return(package);
+                        }
+                    }
                 }
             }, _cancellationTokenSource.Token);
             task.Start(scheduler);

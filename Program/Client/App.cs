@@ -30,13 +30,17 @@ namespace ClientLib
             MessageProcessor.DefaultSerializer = new MsgPackBitSerializer();
 
             _messageProcessor = new MessageProcessor();
+            TaskScheduler taskScheduler;
             if (SynchronizationContext.Current == null) {
-                SynchronizationContext.SetSynchronizationContext(new SynchronizationContext());
+                taskScheduler = TaskScheduler.Current;
             }
-            _messageProcessor.Run(TaskScheduler.FromCurrentSynchronizationContext());
+            else {
+                taskScheduler = TaskScheduler.FromCurrentSynchronizationContext();
+            }
+            _messageProcessor.Run(taskScheduler);
 
             UdpClient = new UdpClient();
-            UdpClient.Run(IPAddress.Parse("192.168.31.10"), 8063);
+            UdpClient.Run(IPAddress.Parse("192.168.0.116"), 8063);
             UdpClient.OnRecvKcpPackage += _messageProcessor.ProcessBytePackage;
 
             Status = AppStatus.Running;

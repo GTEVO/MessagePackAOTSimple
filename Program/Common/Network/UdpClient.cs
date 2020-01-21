@@ -16,6 +16,7 @@ namespace CommonLib.Network
         public const float Rate = 1.750f;
 
         byte[] _buffer;
+        ReadOnlyMemory<byte> _recvMemory;
         EndPoint _remoteEP;
         CancellationTokenSource _cancellationTokenSource;
         CancellationTokenSource _synTaskCancellationTokenSource;
@@ -28,16 +29,16 @@ namespace CommonLib.Network
 
         public uint ConectionId => _kcpLink == null ? 0 : _kcpLink.Conv;
 
-        public int Rtt => _kcpLink == null ? -1 : _kcpLink.Rtt;
+        public uint Rtt => _kcpLink == null ? 9999 : _kcpLink.Rtt;
 
-        private async Task ParseCmd(ReadOnlyMemory<byte> buffer)
+        private async Task ParseCmd(ReadOnlyMemory<byte> recvBufMemory, int length)
         {
-            byte cmd = buffer.Span[0];
+            byte cmd = recvBufMemory.Span[0];
             if ((cmd & NetworkCmd.SYN) != 0) {
                 if ((cmd & NetworkCmd.ACK) != 0) {
                     //  Debug.LogFormat("recv SYN +ACK");
                     //  syn ack
-                    uint conv = BinaryPrimitives.ReadUInt32LittleEndian(buffer.Span.Slice(1));
+                    uint conv = BinaryPrimitives.ReadUInt32LittleEndian(recvBufMemory.Span.Slice(1));
                     if (_kcpLink == null) {
                         _kcpLink = new KcpLink();
                         _kcpLink.Run(conv, new KcpUdpCallback(_socket, _remoteEP));
@@ -57,7 +58,7 @@ namespace CommonLib.Network
             }
             else if ((cmd & NetworkCmd.PUSH) != 0) {
                 //  Debug.LogFormat("recv PUSH");
-                await _kcpLink.RecvFromRemoteAsync(buffer.Slice(1));
+                await _kcpLink.RecvFromRemoteAsync(recvBufMemory.Slice(1, length - 1));
             }
             else if ((cmd & NetworkCmd.FIN) != 0) {
                 //  Debug.LogFormat("recv FIN");
@@ -68,6 +69,7 @@ namespace CommonLib.Network
         public void Run(IPAddress ip, int port)
         {
             _buffer = new byte[ushort.MaxValue];
+            _recvMemory = new ReadOnlyMemory<byte>(_buffer);
 
             _cancellationTokenSource = new CancellationTokenSource();
             _cancellationTokenSource.Token.Register(() => {
@@ -87,8 +89,7 @@ namespace CommonLib.Network
                 Debug.LogFormat("Recv Bytes From Network Task Run At Thread[{0}]", Thread.CurrentThread.ManagedThreadId);
                 while (!_cancellationTokenSource.IsCancellationRequested) {
                     var result = await Task.Factory.FromAsync(BeginRecvFrom, EndRecvFrom, _socket, TaskCreationOptions.None);
-                    var memory = new ReadOnlyMemory<byte>(_buffer, 0, result.len);
-                    await ParseCmd(memory);
+                    await ParseCmd(_recvMemory, result.len);
                 }
             }, _cancellationTokenSource.Token, TaskCreationOptions.LongRunning);
             recvTask.Start();
@@ -115,8 +116,8 @@ namespace CommonLib.Network
         {
             if (_kcpLink == null)
                 return;
-            var bytes = MessageProcessor.PackageMessage(msg);
-            _kcpLink.SendToRemoteAsync(bytes);
+            var data = MessageProcessor.PackageMessage(msg);
+            _kcpLink.SendToRemoteAsync(data);
         }
 
         public void ConnectTo()

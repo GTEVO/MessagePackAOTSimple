@@ -19,22 +19,18 @@ namespace CommonLib.Network
         public event Action<IMemoryOwner<byte>, int, IReliableDataLink> OnRecvKcpPackage;
 
         public uint Conv { get; private set; }
-        public int Rtt => _kcp.rx_rtt;
+        public uint Rtt => _kcp.rx_rtt;
 
         private Kcp _kcp;
         private CancellationTokenSource _tokenSource;
-        private CancellationTokenSource _updateDelaytokenSource;
 
-        private BufferBlock<NetworkBasePackage> _recvFromRemote;
-        private BufferBlock<NetworkBasePackage> _recvFromLocal;
-
-        [ThreadStatic]
-        private static TaskScheduler _synchronizationContextTaskScheduler;
+        private BufferBlock<DataPackage> _recvFromRemote;
+        private BufferBlock<DataPackage> _recvFromLocal;
 
         public void Run(uint conv, IKcpCallback kcpCallback)
         {
-            _recvFromRemote = new BufferBlock<NetworkBasePackage>();
-            _recvFromLocal = new BufferBlock<NetworkBasePackage>();
+            _recvFromRemote = new BufferBlock<DataPackage>();
+            _recvFromLocal = new BufferBlock<DataPackage>();
 
             Conv = conv;
 
@@ -45,104 +41,84 @@ namespace CommonLib.Network
 
             _tokenSource = new CancellationTokenSource();
 
-            //  从解析命令的上下文（线程）中切出去，由默认调度器（线程池调度器）启动该任务
-            Task.Run(() => {
-
-                //  Debug.LogFormat("Kcp.cnov:{0} Task Run At Thread[{1}]", conv, Thread.CurrentThread.ManagedThreadId);
-
-                if (_synchronizationContextTaskScheduler == null) {
-                    if (SynchronizationContext.Current == null) {
-                        var synchronizationContext = new SynchronizationContext();
-                        SynchronizationContext.SetSynchronizationContext(synchronizationContext);
+            //  这样写的目的，在服务器上，压解缩、加解密可以利用多核（多个KCP连接之间的压解缩、加解密是可以并行的）
+            //  update
+            Task.Factory.StartNew(async () => {
+                //  检测并Flush数据到远端
+                while (!_tokenSource.IsCancellationRequested) {
+                    try {
+                        _kcp.Update(DateTime.UtcNow);
+                        await _kcp.CheckAwait(DateTime.UtcNow, _tokenSource.Token);
                     }
-                    _synchronizationContextTaskScheduler = TaskScheduler.FromCurrentSynchronizationContext();
-                    Debug.LogFormat("Create SynchronizationContext TaskScheduler For Thread[{0}]", Thread.CurrentThread.ManagedThreadId);
+                    catch (TaskCanceledException) {
+                        break;
+                    }
+                    catch (ObjectDisposedException e) {
+                        //  一般情况下，OutPut时使用Socket发送数据时，而Socket被关闭时会进入此分支；暂时这么处理
+                        if (e.ObjectName == "System.Net.Sockets.Socket")
+                            break;
+                        Debug.LogErrorFormat("Kcp.updateTask: \r\n {0}", e);
+                    }
                 }
+            }, _tokenSource.Token);
 
-                _updateDelaytokenSource = new CancellationTokenSource();
-
-                //  这样写的目的，在服务器上，压解缩、加解密可以利用多核（多个KCP连接之间的压解缩、加解密是可以并行的）
-                //  update
-                Task updateTask = new Task(async () => {
-                    //  Debug.LogFormat("Kcp.cnov:{0} Update Task Run At Thread[{1}]", conv, Thread.CurrentThread.ManagedThreadId);
-                    while (!_tokenSource.IsCancellationRequested) {
-                        try {
-                            var now = DateTime.UtcNow;
-                            _kcp.Update(now);
-                            now = DateTime.UtcNow;
-                            var delay = _kcp.Check(now);
-                            await Task.Delay(delay, _updateDelaytokenSource.Token);
-                        }
-                        catch (TaskCanceledException) {
-                            _updateDelaytokenSource = new CancellationTokenSource();
-                            continue;
-                        }
-                        catch (ObjectDisposedException e) {
-                            //  一般情况下，Socket发送数据时，被关闭时会进入此分支；暂时这么处理
-                            if (e.ObjectName == "System.Net.Sockets.Socket")
+            //  input from lower level
+            Task.Factory.StartNew(async () => {
+                //  收到 Ack 帧，需要移除 snd_buf；收到数据帧，则需要 Flush Ack
+                while (!_tokenSource.IsCancellationRequested) {
+                    DataPackage package = null;
+                    try {
+                        package = await _recvFromRemote.ReceiveAsync(_tokenSource.Token);
+                        var result = _kcp.Input(package.MemoryOwner.Memory.Span.Slice(package.Offset, package.Lenght));
+                        while (result == 0) {
+                            var (memoryOwner, avalidLength) = _kcp.TryRecv();
+                            if (memoryOwner == null)
                                 break;
-                            Debug.LogErrorFormat("Kcp.updateTask: \r\n {0}", e);
+                            //  在此解压、解密
+                            OnRecvKcpPackage?.Invoke(memoryOwner, avalidLength, this);
+                        };
+                    }
+                    catch (TaskCanceledException) {
+                        _recvFromRemote.Complete();
+                        break;
+                    }
+                    catch (Exception e) {
+                        Debug.LogErrorFormat("Kcp.inputTask: \r\n {0}", e);
+                    }
+                    finally {
+                        if (package != null) {
+                            package.MemoryOwner.Dispose();
+                            DataPackage.Pool.Return(package);
                         }
                     }
-                });
-                updateTask.Start(_synchronizationContextTaskScheduler);
+                }
+            }, _tokenSource.Token);
 
-                //  input from lower level
-                Task inputTask = new Task(async () => {
-                    //  Debug.LogFormat("Kcp.cnov:{0} Input Task Run At Thread[{1}]", conv, Thread.CurrentThread.ManagedThreadId);
-                    while (!_tokenSource.IsCancellationRequested) {
-                        try {
-                            var package = await _recvFromRemote.ReceiveAsync(_tokenSource.Token);
-                            var result = _kcp.Input(package.MemoryOwner.Memory.Span.Slice(0, package.Size));
-                            while (result == 0) {
-                                //  收到了帧，则需要Flush ack
-                                _updateDelaytokenSource.Cancel(true);
-                                var (buffer, avalidLength) = _kcp.TryRecv();
-                                if (buffer == null)
-                                    break;
-                                //  在此解压、解密
-                                OnRecvKcpPackage?.Invoke(buffer, avalidLength, this);
-                            };
-                        }
-                        catch (TaskCanceledException) {
-                            break;
-                        }
-                        catch (Exception e) {
-                            //  _updateDelaytokenSource.Cancel(true);有可能抛出异常，可以忽视
-                            Debug.LogErrorFormat("Kcp.inputTask: \r\n {0}", e);
+            //  send by user
+            Task.Factory.StartNew(async () => {
+                //  有可能需要发送帧，需要Flush Snd_Queue
+                while (!_tokenSource.IsCancellationRequested) {
+                    DataPackage package = null;
+                    try {
+                        package = await _recvFromLocal.ReceiveAsync(_tokenSource.Token);
+                        //  在此压缩、加密         
+                        _kcp.Send(package.MemoryOwner.Memory.Span.Slice(0, package.Lenght));
+                    }
+                    catch (TaskCanceledException) {
+                        _recvFromLocal.Complete();
+                        break;
+                    }
+                    catch (Exception e) {
+                        Debug.LogErrorFormat("Kcp.sendTask: \r\n {0}", e);
+                    }
+                    finally {
+                        if (package != null) {
+                            package.MemoryOwner.Dispose();
+                            DataPackage.Pool.Return(package);
                         }
                     }
-                }, _tokenSource.Token);
-                inputTask.Start(_synchronizationContextTaskScheduler);
-
-                //  send by user
-                Task sendTask = new Task(async () => {
-                    //  Debug.LogFormat("Kcp.cnov:{0} Send Task Run At Thread[{1}]", conv, Thread.CurrentThread.ManagedThreadId);
-                    while (!_tokenSource.IsCancellationRequested) {
-                        try {
-                            var package = await _recvFromLocal.ReceiveAsync(_tokenSource.Token);
-                            //  在此压缩、加密                       
-                            _kcp.Send(package.MemoryOwner.Memory.Span.Slice(0, package.Size));
-                            //  需要发送帧，需要Flush Snd_Queue
-                            _updateDelaytokenSource.Cancel(true);
-                            NetworkBasePackage.Pool.Return(package);
-                        }
-                        catch (TaskCanceledException) {
-                            break;
-                        }
-                        catch (Exception e) {
-                            //  _updateDelaytokenSource.Cancel(true);有可能抛出异常，可以忽视
-                            Debug.LogErrorFormat("Kcp.sendTask: \r\n {0}", e);
-                        }
-                    }
-                }, _tokenSource.Token);
-                sendTask.Start(_synchronizationContextTaskScheduler);
-
-            }, _tokenSource.Token).ContinueWith(task => {
-                //  预测创建同步上下文，获取调度器之前线程发生切换。之后可能会异常，概率应该不大，就不处理了
-                Debug.LogErrorFormat("KcpLink.cnov:{0}\r\n[{1}]", conv, task.Exception);
-                Stop();
-            }, TaskContinuationOptions.OnlyOnFaulted);
+                }
+            }, _tokenSource.Token);
         }
 
         public void Stop(Action onCancel = null)
@@ -153,22 +129,35 @@ namespace CommonLib.Network
             _tokenSource.Cancel();
         }
 
-        public Task SendToRemoteAsync(ReadOnlyMemory<byte> buffer)
+        public Task SendToRemoteAsync(IMemoryOwner<byte> memoryOwner, int offset, int len)
         {
-            var package = NetworkBasePackage.Pool.Get();
-            package.Size = buffer.Length;
-            package.MemoryOwner = MemoryPool<byte>.Shared.Rent(buffer.Length);
-            buffer.CopyTo(package.MemoryOwner.Memory);
+            var package = DataPackage.Pool.Get();
+            package.Offset = offset;
+            package.Lenght = len;
+            package.MemoryOwner = memoryOwner;
             return _recvFromLocal.SendAsync(package);
         }
 
-        public Task RecvFromRemoteAsync(ReadOnlyMemory<byte> buffer)
+        public Task SendToRemoteAsync((IMemoryOwner<byte> memoryOwner, int len) msg)
         {
-            var package = NetworkBasePackage.Pool.Get();
-            package.Size = buffer.Length;
-            package.MemoryOwner = MemoryPool<byte>.Shared.Rent(buffer.Length);
-            buffer.CopyTo(package.MemoryOwner.Memory);
+            return SendToRemoteAsync(msg.memoryOwner, 0, msg.len);
+        }
+
+        public Task RecvFromRemoteAsync(IMemoryOwner<byte> memoryOwner, int offset, int len)
+        {
+            var package = DataPackage.Pool.Get();
+            package.Offset = offset;
+            package.Lenght = len;
+            package.MemoryOwner = memoryOwner;
             return _recvFromRemote.SendAsync(package);
+        }
+
+        public Task RecvFromRemoteAsync(ReadOnlyMemory<byte> memory)
+        {
+            var len = memory.Length;
+            var memoryOwner = MemoryPool<byte>.Shared.Rent(len);
+            memory.CopyTo(memoryOwner.Memory);
+            return RecvFromRemoteAsync(memoryOwner, 0, len);
         }
 
     }

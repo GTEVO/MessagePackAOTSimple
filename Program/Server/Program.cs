@@ -40,7 +40,7 @@ namespace Server
                     SeqNumber = msg.SeqNumber,
                 };
                 var bytes = MessageProcessor.PackageMessage(rsp);
-                fromLink.SendToRemoteAsync(bytes);
+                fromLink.SendToRemoteAsync(bytes.buffer, 0, bytes.len);
                 //  Debug.LogFormat("{0}-{1}-{2}", msg.Account, msg.Password, msg.Extra);
             });
 

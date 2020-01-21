@@ -21,12 +21,14 @@ namespace CommonLib.Network
         public EndPoint remote;
     }
 
-    public interface INetworkPackage
+    public interface IDataPackage
     {
+        int Offset { get; set; }
+        int Lenght { get; set; }
         IMemoryOwner<byte> MemoryOwner { get; set; }
     }
 
-    public class NetworkPackPolicy<T> : IPooledObjectPolicy<T> where T : INetworkPackage, new()
+    public class DataPackagePolicy<T> : IPooledObjectPolicy<T> where T : IDataPackage, new()
     {
         T IPooledObjectPolicy<T>.Create()
         {
@@ -35,28 +37,34 @@ namespace CommonLib.Network
 
         bool IPooledObjectPolicy<T>.Return(T obj)
         {
-            obj.MemoryOwner.Dispose();
+            obj.Offset = 0;
+            obj.Lenght = 0;
+            obj.MemoryOwner = null;
+
             return true;
         }
     }
 
-    public class NetworkLinkPackage : NetworkBasePackage
+    public class LinkPackage : DataPackage
     {
-        public static new ObjectPool<NetworkLinkPackage> Pool = ObjectPool.Create(new NetworkPackPolicy<NetworkLinkPackage>());
+        public static new ObjectPool<LinkPackage> Pool = ObjectPool.Create(new DataPackagePolicy<LinkPackage>());
+
         public IReliableDataLink Link { get; set; }
     }
 
-    public class NetworkPackage : NetworkBasePackage
+    public class NetworkPackage : DataPackage
     {
-        public static new ObjectPool<NetworkPackage> Pool = ObjectPool.Create(new NetworkPackPolicy<NetworkPackage>());
+        public static new ObjectPool<NetworkPackage> Pool = ObjectPool.Create(new DataPackagePolicy<NetworkPackage>());
+
         public EndPoint Remote { get; set; }
     }
 
-    public class NetworkBasePackage : INetworkPackage
+    public class DataPackage : IDataPackage
     {
-        public static ObjectPool<NetworkBasePackage> Pool = ObjectPool.Create(new NetworkPackPolicy<NetworkBasePackage>());
+        public static ObjectPool<DataPackage> Pool = ObjectPool.Create(new DataPackagePolicy<DataPackage>());
 
-        public int Size { get; set; }
+        public int Offset { get; set; }
+        public int Lenght { get; set; }
         public IMemoryOwner<byte> MemoryOwner { get; set; }
     }
 }

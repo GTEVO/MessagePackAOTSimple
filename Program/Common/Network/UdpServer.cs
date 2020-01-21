@@ -42,7 +42,7 @@ namespace CommonLib.Network
 
         private async Task ParseCmd(NetworkPackage package)
         {
-            ReadOnlyMemory<byte> buffer = package.MemoryOwner.Memory.Slice(0, package.Size);
+            ReadOnlyMemory<byte> buffer = package.MemoryOwner.Memory.Slice(0, package.Lenght);
             byte cmd = buffer.Span[0];
 
             if ((cmd & NetworkCmd.SYN) != 0) {
@@ -120,12 +120,16 @@ namespace CommonLib.Network
                         }
                     }
                 }
+                package.MemoryOwner.Dispose();
             }
             else if ((cmd & NetworkCmd.PUSH) != 0) {
                 //  Debug.LogFormat("recv PUSH");
                 //  数据
                 if (_networkLinks.TryGetValue(package.Remote, out var link)) {
-                    await link.RecvFromRemoteAsync(buffer.Slice(1));
+                    await link.RecvFromRemoteAsync(package.MemoryOwner, 1, package.Lenght - 1);
+                }
+                else {
+                    package.MemoryOwner.Dispose();
                 }
             }
             else if ((cmd & NetworkCmd.FIN) != 0) {
@@ -134,10 +138,11 @@ namespace CommonLib.Network
                 if (_networkLinks.TryRemove(package.Remote, out var link)) {
                     link.Stop();
                 }
+                package.MemoryOwner.Dispose();
             }
-
-            //  Pool Return
-            NetworkBasePackage.Pool.Return(package);
+            else {
+                package.MemoryOwner.Dispose();
+            }
         }
 
         public void Start(IPAddress ip, int port)
@@ -149,12 +154,16 @@ namespace CommonLib.Network
             _socket.Bind(listenIp);
             // recv
             var cpuNum = Environment.ProcessorCount * 1.5;
-            for (int i = 0; i < cpuNum; i++) {
+            for (int i = 0; i < 1; i++) {
                 var task = new Task(async () => {
                     Debug.LogFormat("ParseCmd Task Run At Thread [{0}]", Thread.CurrentThread.ManagedThreadId);
                     do {
+
                         var package = await _recvQueue.ReceiveAsync();
                         await ParseCmd(package);
+                        //  Pool Return
+                        DataPackage.Pool.Return(package);
+
                     } while (!_cancellationTokenSource.IsCancellationRequested);
                 }, _cancellationTokenSource.Token, TaskCreationOptions.LongRunning);
                 task.Start();
@@ -167,7 +176,7 @@ namespace CommonLib.Network
                     //  Pool Get
                     var msgpack = NetworkPackage.Pool.Get();
                     msgpack.Remote = result.remote;
-                    msgpack.Size = result.len;
+                    msgpack.Lenght = result.len;
                     msgpack.MemoryOwner = MemoryPool<byte>.Shared.Rent(result.len);
                     ((Span<byte>)_buffer).Slice(0, result.len).CopyTo(msgpack.MemoryOwner.Memory.Span);
                     await _recvQueue.SendAsync(msgpack);
@@ -185,7 +194,6 @@ namespace CommonLib.Network
         {
             _messageProcessor.ProcessBytePackageAsync(memoryOwner, len, fromLink);
         }
-
 
         #region Implement Socket Cross Platform RecvFromAsync
         private IAsyncResult BeginRecvFrom(AsyncCallback callback, object state)
