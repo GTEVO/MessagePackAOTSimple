@@ -644,6 +644,14 @@ namespace System.Net.Sockets.Kcp
         void KeepAlive()
         {
             rx_rtt = Math.Max(0, current - last_recv_heat_beat_ack_t - ASK_ALIVE_INTERVAL);
+            last_send_heat_beat_t = current;
+            if (last_recv_heat_beat_ack_t == 0) {
+                last_recv_heat_beat_ack_t = current;
+            }
+            else if (last_recv_heat_beat_ack_t + KEEP_ALIVE_EFFECTIVE_DURATION < current) {
+                callbackHandle.LostLink(this);
+                return;
+            }
             lock (snd_bufLock) {
                 var first_send_seg = snd_buf.First;
                 if (first_send_seg != null) {
@@ -665,13 +673,6 @@ namespace System.Net.Sockets.Kcp
                 snd_queue.Enqueue(seg);
             }
 
-            last_send_heat_beat_t = current;
-            if (last_recv_heat_beat_ack_t == 0) {
-                last_recv_heat_beat_ack_t = current;
-            }
-            else if (last_recv_heat_beat_ack_t + KEEP_ALIVE_EFFECTIVE_DURATION < current) {
-                callbackHandle.LostLink(this);
-            }
         }
 
         /// <summary>
