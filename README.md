@@ -12,3 +12,6 @@ en...... 专走邪门歪道 ^~^
 
 ## 提示
 首次打开Unity项目会报错，无视即可
+
+## Mark
+reed solomon FEC+KCP (https://github.com/skywind3000/kcp/issues/38)
