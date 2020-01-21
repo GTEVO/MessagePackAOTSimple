@@ -19,7 +19,7 @@ namespace UnitTestProject1
         [Fact]
         public async Task MultiClients()
         {
-            for (int i = 0; i < 100; i++) {
+            for (int i = 0; i < 200; i++) {
                 ClientAppTest();
             }
             await Task.Delay(1000 * 60 * 5);
@@ -58,7 +58,7 @@ namespace UnitTestProject1
             messageProcessor.Run(TaskScheduler.FromCurrentSynchronizationContext());
 
             UdpClient udpClient = new UdpClient();
-            udpClient.Run(IPAddress.Parse("192.168.0.1216"), 8063);
+            udpClient.Run(IPAddress.Parse("192.168.0.128"), 8063);
             udpClient.OnRecvKcpPackage += messageProcessor.ProcessBytePackage;
 
             Task.Run(async () => {
