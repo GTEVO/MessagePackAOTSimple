@@ -699,7 +699,7 @@ namespace System.Net.Sockets.Kcp
                 }
             }
 
-            rx_rtt = rx_rttval;
+            rx_rtt = rx_srtt;
 
             var rto = rx_srtt + Max(interval, 4 * rx_rttval);
 
