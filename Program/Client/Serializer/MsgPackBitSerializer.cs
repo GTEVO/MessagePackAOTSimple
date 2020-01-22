@@ -20,7 +20,6 @@ namespace ClientLib.Serializer
             StaticCompositeResolver.Instance.Register(new IFormatterResolver[]
             {
                 GeneratedResolver.Instance,
-                MessagePack.Unity.UnityResolver.Instance,
                 StandardResolver.Instance,
             });
             // Store it for reuse.

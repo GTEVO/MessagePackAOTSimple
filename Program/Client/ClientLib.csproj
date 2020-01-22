@@ -20,10 +20,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Reference Include="MessagePack">
-      <HintPath>..\..\MessagePackAOT\Library\ScriptAssemblies\MessagePack.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
     <Reference Include="System.Memory">
       <HintPath>..\..\MessagePackAOT\Assets\Plugins\System.Memory.dll</HintPath>
       <Private>false</Private>

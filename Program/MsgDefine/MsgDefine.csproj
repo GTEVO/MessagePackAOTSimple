@@ -9,10 +9,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Reference Include="MessagePack.Annotations">
-      <HintPath>..\ReferenceAssembly\MessagePack.Annotations.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
+    <PackageReference Include="MessagePack" Version="2.0.335" />
   </ItemGroup>
 
   <!--
