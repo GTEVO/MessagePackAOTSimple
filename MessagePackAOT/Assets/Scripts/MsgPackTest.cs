@@ -21,6 +21,8 @@ public class MsgPackTest : MonoBehaviour
     [SerializeField] Font m_font;
     [SerializeField] Transform _msgsRoot;
 
+    [SerializeField] Text m_loginRsp;
+
     private CancellationTokenSource _cancellationTokenSource;
 
     private List<App> apps = new List<App>();
@@ -87,6 +89,9 @@ public class MsgPackTest : MonoBehaviour
         App.Instacne.Init();
         StartCoroutine(Ping());
         _cancellationTokenSource = new CancellationTokenSource();
+        MessageProcessor.RegisterHandler<LoginRspMsg>((msg, link) => {
+            m_loginRsp.text = msg.SeqNumber.ToString();
+        });
     }
 
     public void OnClickCreateApps()
@@ -277,7 +282,7 @@ public class MsgPackTest : MonoBehaviour
                 var loginReq = new LoginReqMsg {
                     Account = app.UdpClient.ConectionId.ToString(),
                     Password = "PWD",
-                    Extra = System.DateTime.Now.ToFileTimeUtc().ToString()
+                    SeqNumber = System.DateTime.Now.Millisecond,
                 };
                 app.UdpClient.SendMessage(loginReq);
                 await Task.Delay(16);
